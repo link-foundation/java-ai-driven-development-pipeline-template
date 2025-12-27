@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 public final class MyPackage {
 
   /** The current version of the package. */
-  public static final String VERSION = "0.1.0";
+  public static final String VERSION = "0.2.0";
 
   private MyPackage() {
     // Private constructor to prevent instantiation
