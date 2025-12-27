@@ -16,7 +16,7 @@ A production-ready Java project template designed for AI-driven development work
   - JaCoCo for code coverage
 - **Pre-commit Hooks**: Automated quality checks before commits
 - **CI/CD Pipeline**: GitHub Actions with multi-platform testing
-- **Changelog Management**: Fragment-based system to avoid merge conflicts
+- **Changesets Workflow**: JS-style changeset system to avoid merge conflicts
 - **Release Automation**: Automatic and manual release workflows
 - **Fast CI/CD Scripts**: Using Bun/Node.js (.mjs) for maximum performance
 
@@ -29,6 +29,7 @@ A production-ready Java project template designed for AI-driven development work
 3. Customize the following:
    - `pom.xml`: Update `groupId`, `artifactId`, `name`, and `description`
    - Rename `src/main/java/com/linkfoundation/mypackage/` to match your package
+   - Update package name in scripts: `scripts/*.mjs` (search for `PACKAGE_NAME`)
    - Update imports in tests and examples
 
 ### Development Setup
@@ -54,24 +55,26 @@ pre-commit install
 
 ```
 .
+├── .changeset/                   # Changeset files (JS-style)
+│   ├── config.json
+│   └── README.md
 ├── .github/
 │   └── workflows/
-│       └── release.yml          # CI/CD pipeline
-├── changelog.d/                  # Changelog fragments
-│   └── README.md
+│       └── release.yml           # CI/CD pipeline
 ├── examples/
-│   └── BasicUsage.java          # Usage examples
+│   └── BasicUsage.java           # Usage examples
 ├── scripts/                      # CI/CD scripts (Node.js/Bun)
 │   ├── bump-version.mjs
 │   ├── check-file-size.mjs
 │   ├── collect-changelog.mjs
 │   ├── create-github-release.mjs
 │   ├── create-manual-changeset.mjs
+│   ├── merge-changesets.mjs
 │   ├── validate-changeset.mjs
 │   └── version-and-commit.mjs
 ├── src/
-│   ├── main/java/               # Source code
-│   └── test/java/               # Tests
+│   ├── main/java/                # Source code
+│   └── test/java/                # Tests
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── CHANGELOG.md
@@ -135,29 +138,36 @@ mvn verify
 bun scripts/check-file-size.mjs
 ```
 
-### Creating a Changelog Fragment
+### Creating a Changeset
 
-For every PR with code changes, create a changelog fragment:
+For every PR with code changes, create a changeset:
 
 ```bash
-# Using the script
-bun scripts/create-manual-changeset.mjs --description "my-feature"
-
-# Or manually
-touch changelog.d/$(date +%Y%m%d_%H%M%S)_my_feature.md
+# Using the script (recommended)
+bun scripts/create-manual-changeset.mjs --bump-type patch --description "Fix a bug"
+bun scripts/create-manual-changeset.mjs --bump-type minor --description "Add new feature"
+bun scripts/create-manual-changeset.mjs --bump-type major --description "Breaking change"
 ```
 
-Then edit the file to describe your changes.
+Or create manually in `.changeset/`:
+
+```markdown
+---
+'my-package': patch
+---
+
+Description of the changes made.
+```
 
 ## CI/CD Pipeline
 
 ### Automated Workflows
 
-|     Trigger     |                     Actions                     |
-|-----------------|-------------------------------------------------|
-| Pull Request    | Lint, format check, tests, changelog validation |
-| Push to main    | All checks + auto-release if version changed    |
-| Manual dispatch | Version bump + release                          |
+|     Trigger     |                     Actions                      |
+|-----------------|--------------------------------------------------|
+| Pull Request    | Lint, format check, tests, changeset validation  |
+| Push to main    | All checks + auto-release if changesets present  |
+| Manual dispatch | Changeset, instant, or changeset-pr mode         |
 
 ### Test Matrix
 
@@ -166,15 +176,23 @@ Then edit the file to describe your changes.
 
 ### Release Process
 
-**Automatic Release**:
-1. Update version in `pom.xml` and `MyPackage.java`
-2. Merge to `main`
-3. CI creates GitHub release automatically
+The release process uses a **changeset-based workflow** similar to JavaScript's `@changesets/cli`:
 
-**Manual Release**:
-1. Go to Actions → CI/CD Pipeline
-2. Click "Run workflow"
-3. Select bump type (patch/minor/major)
+1. **During Development**: Add changesets to PRs describing changes and bump type
+2. **On Merge to Main**: Changesets accumulate until release
+3. **Auto-Release**: When changesets are present, the release job:
+   - Merges multiple changesets (highest bump type wins)
+   - Bumps version automatically
+   - Updates CHANGELOG.md
+   - Creates GitHub release
+
+### Release Modes (via workflow_dispatch)
+
+| Mode           | Description                                  |
+|----------------|----------------------------------------------|
+| `changeset`    | Release based on pending changesets (default)|
+| `instant`      | Direct version bump without changesets       |
+| `changeset-pr` | Create a PR with a new changeset             |
 
 ## Configuration
 
@@ -199,15 +217,16 @@ Key sections to customize:
 
 ## Scripts Reference
 
-|            Script             |                Purpose                 |
-|-------------------------------|----------------------------------------|
-| `check-file-size.mjs`         | Validate files don't exceed 1000 lines |
-| `bump-version.mjs`            | Bump semantic version in pom.xml       |
-| `collect-changelog.mjs`       | Merge changelog fragments              |
-| `create-github-release.mjs`   | Create GitHub release                  |
-| `create-manual-changeset.mjs` | Create changelog fragment              |
-| `validate-changeset.mjs`      | Validate changelog fragments           |
-| `version-and-commit.mjs`      | Full release workflow                  |
+|            Script             |                Purpose                  |
+|-------------------------------|-----------------------------------------|
+| `check-file-size.mjs`         | Validate files don't exceed 1000 lines  |
+| `bump-version.mjs`            | Bump semantic version in pom.xml        |
+| `collect-changelog.mjs`       | Collect changesets into CHANGELOG.md    |
+| `create-github-release.mjs`   | Create GitHub release                   |
+| `create-manual-changeset.mjs` | Create a new changeset file             |
+| `merge-changesets.mjs`        | Merge multiple changesets into one      |
+| `validate-changeset.mjs`      | Validate changeset format               |
+| `version-and-commit.mjs`      | Full release workflow                   |
 
 ## Design Decisions
 
@@ -223,11 +242,12 @@ Key sections to customize:
 - Consistent code style across the project
 - Automated formatting
 
-### Why Fragment-Based Changelog?
+### Why Changesets Workflow?
 
-- No merge conflicts on `CHANGELOG.md`
-- Each PR documents its own changes
-- Automated collection during release
+- **No merge conflicts** on CHANGELOG.md
+- **Automatic version determination** from changesets
+- **Same pattern as JS template** for consistency across ecosystems
+- Each PR documents its own changes with bump type
 
 ### Why Bun/Node.js for Scripts?
 

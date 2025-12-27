@@ -8,7 +8,7 @@ Thank you for your interest in contributing! This document provides guidelines a
 - [Development Workflow](#development-workflow)
 - [Code Standards](#code-standards)
 - [Testing Guidelines](#testing-guidelines)
-- [Changelog Management](#changelog-management)
+- [Changesets](#changesets)
 - [Pull Request Process](#pull-request-process)
 - [Release Process](#release-process)
 
@@ -30,17 +30,20 @@ Thank you for your interest in contributing! This document provides guidelines a
    git clone https://github.com/YOUR_USERNAME/java-ai-driven-development-pipeline-template.git
    cd java-ai-driven-development-pipeline-template
    ```
+
 2. **Verify Java and Maven versions**:
 
    ```bash
    java --version    # Should be 17+
    mvn --version     # Should be 3.8+
    ```
+
 3. **Install dependencies and build**:
 
    ```bash
    mvn clean install
    ```
+
 4. **Install pre-commit hooks** (optional but recommended):
 
    ```bash
@@ -74,7 +77,8 @@ git checkout -b feature/your-feature-name
    mvn spotbugs:check    # Static analysis
    mvn test              # Unit tests
    ```
-4. Create a changelog fragment (see [Changelog Management](#changelog-management))
+
+4. Create a changeset (see [Changesets](#changesets))
 5. Commit your changes:
 
    ```bash
@@ -182,42 +186,62 @@ class MyPackageTest {
 - All public methods should have tests
 - Include edge cases and error conditions
 
-## Changelog Management
+## Changesets
 
-We use a fragment-based changelog system to avoid merge conflicts.
+We use a changeset-based workflow (similar to JavaScript's `@changesets/cli`) to manage version bumps and changelogs. This approach:
 
-### Creating a Changelog Fragment
+- **Avoids merge conflicts** when multiple PRs are open
+- **Associates changes with PRs** for better traceability
+- **Determines version bump automatically** from changesets
 
-1. Create a new file in `changelog.d/`:
+### Creating a Changeset
 
-   ```bash
-   # Using the script
-   bun scripts/create-manual-changeset.mjs --description "my-feature"
+For every PR that changes source code, add a changeset file:
 
-   # Or manually
-   touch changelog.d/$(date +%Y%m%d_%H%M%S)_my_feature.md
-   ```
-2. Add your changes using the appropriate categories:
+```bash
+# Using the script (recommended)
+bun scripts/create-manual-changeset.mjs --bump-type patch --description "Fix a bug"
+bun scripts/create-manual-changeset.mjs --bump-type minor --description "Add new feature"
+bun scripts/create-manual-changeset.mjs --bump-type major --description "Breaking change"
+```
 
-   ```markdown
-   ### Added
-   - New feature description
+Or create manually in `.changeset/`:
 
-   ### Changed
-   - Changed behavior description
+```markdown
+---
+'my-package': patch
+---
 
-   ### Fixed
-   - Bug fix description
-   ```
+Description of the changes made.
+```
 
-### Categories
+### Changeset Format
 
-- **Added**: New features
-- **Changed**: Changes to existing functionality
-- **Deprecated**: Features that will be removed
-- **Removed**: Removed features
-- **Fixed**: Bug fixes
-- **Security**: Security-related changes
+Each changeset has two parts:
+
+1. **Frontmatter** (between `---` markers):
+   - Package name and version bump type (major, minor, or patch)
+
+2. **Description**:
+   - Clear description of what changed
+   - Use present tense ("Add feature" not "Added feature")
+   - Reference issue numbers when applicable: "Fix login bug (#123)"
+
+### Version Bump Types
+
+- **patch**: Bug fixes, documentation updates, internal changes
+- **minor**: New features, non-breaking enhancements
+- **major**: Breaking changes, API changes
+
+### Example Changeset
+
+```markdown
+---
+'my-package': minor
+---
+
+Add async delay function with CompletableFuture support for non-blocking operations.
+```
 
 ## Pull Request Process
 
@@ -225,7 +249,7 @@ We use a fragment-based changelog system to avoid merge conflicts.
 
 1. Ensure all tests pass: `mvn verify`
 2. Format your code: `mvn spotless:apply`
-3. Create a changelog fragment
+3. Create a changeset for source changes
 4. Update documentation if needed
 
 ### PR Requirements
@@ -249,21 +273,34 @@ Use conventional commit format:
 
 ## Release Process
 
-Releases are automated through GitHub Actions.
+Releases are automated through GitHub Actions using the changeset workflow.
 
-### Automatic Releases
+### How It Works
 
-When changes are merged to `main`, if the version in `pom.xml` has changed:
-1. CI builds and tests the code
-2. Creates a GitHub release
-3. Uploads JAR artifacts
+1. **PR Development**: Each PR includes a changeset describing the change
+2. **PR Merge**: When PRs are merged to `main`, changesets accumulate
+3. **Auto Release**: The release job detects pending changesets and:
+   - Merges multiple changesets (highest bump type wins)
+   - Bumps version according to changesets
+   - Updates CHANGELOG.md
+   - Creates a GitHub release
+   - Uploads JAR artifacts
 
-### Manual Releases
+### Release Modes (via workflow_dispatch)
+
+| Mode | Description |
+|------|-------------|
+| `changeset` | Release based on pending changesets (default) |
+| `instant` | Direct version bump without changesets |
+| `changeset-pr` | Create a PR with a new changeset |
+
+### Manual Release
 
 Maintainers can trigger a release via GitHub Actions:
-1. Go to Actions → CI/CD Pipeline
+
+1. Go to Actions > CI/CD Pipeline
 2. Click "Run workflow"
-3. Select bump type (patch/minor/major)
+3. Select release mode and options
 
 ### Version Numbering
 
@@ -276,6 +313,7 @@ We follow [Semantic Versioning](https://semver.org/):
 ## Questions?
 
 If you have questions, please:
+
 1. Check existing issues
 2. Open a new issue with your question
 3. Tag it with the `question` label

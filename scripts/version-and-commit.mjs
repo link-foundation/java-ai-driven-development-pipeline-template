@@ -3,40 +3,62 @@
  * Version and commit script for CI/CD releases.
  *
  * This script handles the complete release workflow:
- * 1. Collects changelog fragments
- * 2. Bumps version in pom.xml and Java source
- * 3. Commits changes
- * 4. Creates a git tag
- * 5. Pushes to remote
+ * 1. Collects changelog from changesets
+ * 2. Determines version bump from changesets (or uses provided bump type)
+ * 3. Bumps version in pom.xml and Java source
+ * 4. Commits changes
+ * 5. Creates a git tag
+ * 6. Pushes to remote
  *
  * Usage:
+ *   # Changeset mode (auto-determines bump type from changesets)
+ *   bun scripts/version-and-commit.mjs --mode changeset
+ *
+ *   # Instant mode (manual bump type)
+ *   bun scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch>
+ *
+ *   # Legacy mode (same as instant)
  *   bun scripts/version-and-commit.mjs --bump-type <major|minor|patch>
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+
+// Package name - update this when forking the template
+const PACKAGE_NAME = 'my-package';
+
+// Bump type priority (higher number = higher priority)
+const BUMP_PRIORITY = {
+  patch: 1,
+  minor: 2,
+  major: 3,
+};
 
 /**
  * Parse command line arguments.
  */
 function parseArgs() {
   const args = process.argv.slice(2);
+  let mode = 'instant';
   let bumpType = null;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--bump-type' && args[i + 1]) {
+    if (args[i] === '--mode' && args[i + 1]) {
+      mode = args[i + 1];
+      i++;
+    } else if (args[i] === '--bump-type' && args[i + 1]) {
       bumpType = args[i + 1];
       i++;
     }
   }
 
-  if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
-    console.error('Usage: version-and-commit.mjs --bump-type <major|minor|patch>');
-    process.exit(1);
+  // Legacy mode support: if bump-type is provided without mode, use instant mode
+  if (bumpType && !args.includes('--mode')) {
+    mode = 'instant';
   }
 
-  return { bumpType };
+  return { mode, bumpType };
 }
 
 /**
@@ -62,6 +84,59 @@ function getCurrentVersion(pomPath) {
     throw new Error('Could not find version in pom.xml');
   }
   return match[1];
+}
+
+/**
+ * Find changeset files.
+ * @param {string} changesetDir - Path to .changeset directory
+ * @returns {string[]} Array of changeset file paths
+ */
+function findChangesets(changesetDir) {
+  if (!existsSync(changesetDir)) {
+    return [];
+  }
+
+  return readdirSync(changesetDir)
+    .filter((file) =>
+      file.endsWith('.md') &&
+      file !== 'README.md'
+    )
+    .map((file) => join(changesetDir, file));
+}
+
+/**
+ * Determine bump type from changesets.
+ * @param {string[]} changesetPaths - Array of changeset file paths
+ * @returns {string|null} Highest priority bump type or null if no valid changesets
+ */
+function determineBumpType(changesetPaths) {
+  let highestType = null;
+
+  for (const filePath of changesetPaths) {
+    const content = readFileSync(filePath, 'utf-8');
+
+    // Match frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) continue;
+
+    const frontmatter = frontmatterMatch[1];
+
+    // Extract bump type
+    const versionTypeRegex = new RegExp(
+      `^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`,
+      'm'
+    );
+    const versionTypeMatch = frontmatter.match(versionTypeRegex);
+
+    if (versionTypeMatch) {
+      const type = versionTypeMatch[1];
+      if (!highestType || BUMP_PRIORITY[type] > BUMP_PRIORITY[highestType]) {
+        highestType = type;
+      }
+    }
+  }
+
+  return highestType;
 }
 
 /**
@@ -168,13 +243,45 @@ function setOutput(name, value) {
  * Main function.
  */
 async function main() {
-  const { bumpType } = parseArgs();
+  const { mode, bumpType: providedBumpType } = parseArgs();
   const projectRoot = process.cwd();
   const pomPath = join(projectRoot, 'pom.xml');
+  const changesetDir = join(projectRoot, '.changeset');
   const javaPath = join(
     projectRoot,
     'src/main/java/com/linkfoundation/mypackage/MyPackage.java'
   );
+
+  let bumpType = providedBumpType;
+
+  // In changeset mode, determine bump type from changesets
+  if (mode === 'changeset') {
+    const changesets = findChangesets(changesetDir);
+
+    if (changesets.length === 0) {
+      console.log('No changesets found. Nothing to release.');
+      setOutput('released', 'false');
+      setOutput('already_released', 'true');
+      return;
+    }
+
+    console.log(`Found ${changesets.length} changeset(s)`);
+
+    bumpType = determineBumpType(changesets);
+    if (!bumpType) {
+      console.error('Error: Could not determine bump type from changesets');
+      process.exit(1);
+    }
+
+    console.log(`Determined bump type: ${bumpType}`);
+  }
+
+  // Validate bump type
+  if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
+    console.error('Usage: version-and-commit.mjs --bump-type <major|minor|patch>');
+    console.error('   or: version-and-commit.mjs --mode changeset');
+    process.exit(1);
+  }
 
   // Get current and new versions
   const currentVersion = getCurrentVersion(pomPath);
@@ -187,30 +294,31 @@ async function main() {
   if (tagExists(tag)) {
     console.log(`Tag ${tag} already exists. Skipping release.`);
     setOutput('released', 'false');
+    setOutput('already_released', 'true');
     setOutput('new_version', newVersion);
     return;
   }
 
-  // Collect changelog fragments (if script exists)
+  // First bump version (before collecting changelog, so version is correct)
+  updatePomVersion(pomPath, currentVersion, newVersion);
+  updateJavaVersion(javaPath, currentVersion, newVersion);
+
+  // Collect changelog (which will delete changesets)
   const collectScript = join(projectRoot, 'scripts/collect-changelog.mjs');
   if (existsSync(collectScript)) {
     try {
-      exec(`node ${collectScript}`);
+      exec(`node ${collectScript} --version ${newVersion}`);
     } catch (err) {
-      console.log('No changelog fragments to collect');
+      console.log('No changesets to collect or collection failed');
     }
   }
-
-  // Update version files
-  updatePomVersion(pomPath, currentVersion, newVersion);
-  updateJavaVersion(javaPath, currentVersion, newVersion);
 
   // Configure git
   exec('git config user.name "github-actions[bot]"');
   exec('git config user.email "github-actions[bot]@users.noreply.github.com"');
 
   // Stage changes
-  exec('git add pom.xml CHANGELOG.md');
+  exec('git add pom.xml CHANGELOG.md .changeset/');
   exec(`git add "${javaPath}" || true`);
 
   // Commit
@@ -229,6 +337,7 @@ async function main() {
   // Set outputs
   setOutput('released', 'true');
   setOutput('new_version', newVersion);
+  setOutput('bump_type', bumpType);
 
   console.log(`\nRelease ${newVersion} complete!`);
 }

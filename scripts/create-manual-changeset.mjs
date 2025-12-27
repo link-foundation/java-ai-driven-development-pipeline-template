@@ -1,91 +1,112 @@
 #!/usr/bin/env node
 /**
- * Manual changelog fragment creation script.
+ * Manual changeset creation script.
  *
- * Creates a new changelog fragment file with a template structure.
+ * Creates a new changeset file in the JS changesets format.
  *
  * Usage:
- *   bun scripts/create-manual-changeset.mjs [--description <description>]
+ *   bun scripts/create-manual-changeset.mjs --bump-type <patch|minor|major> --description "Description"
  */
 
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+
+// Package name - update this when forking the template
+const PACKAGE_NAME = 'my-package';
+
+// Word lists for generating random changeset names (like changesets does)
+const ADJECTIVES = [
+  'afraid', 'ancient', 'angry', 'average', 'bad', 'big', 'bitter', 'black',
+  'blue', 'brave', 'breezy', 'bright', 'brown', 'calm', 'chatty', 'chilly',
+  'clever', 'cold', 'cowardly', 'cuddly', 'curly', 'curvy', 'dangerous', 'dry',
+  'dull', 'early', 'empty', 'evil', 'famous', 'fancy', 'fast', 'fluffy',
+  'four', 'fresh', 'friendly', 'funny', 'fuzzy', 'gentle', 'giant', 'gold',
+  'good', 'great', 'green', 'grumpy', 'happy', 'heavy', 'helpful', 'hip',
+  'honest', 'hot', 'hungry', 'itchy', 'jolly', 'kind', 'large', 'late',
+  'lazy', 'light', 'little', 'lively', 'long', 'loud', 'lovely', 'lucky',
+  'mean', 'mighty', 'modern', 'moody', 'nasty', 'neat', 'nervous', 'new',
+  'nice', 'odd', 'old', 'orange', 'pink', 'polite', 'popular', 'pretty',
+  'proud', 'purple', 'quick', 'quiet', 'rare', 'real', 'red', 'rich',
+  'rotten', 'rude', 'sad', 'scary', 'selfish', 'serious', 'seven', 'shaggy',
+  'sharp', 'short', 'shy', 'silent', 'silly', 'six', 'slow', 'small',
+  'smart', 'soft', 'sour', 'spicy', 'spotty', 'stale', 'strange', 'strong',
+  'stupid', 'sweet', 'swift', 'tall', 'tame', 'tasty', 'ten', 'tender',
+  'thick', 'thin', 'tidy', 'tiny', 'tough', 'tricky', 'twelve', 'twenty',
+  'wet', 'wicked', 'wide', 'wild', 'witty', 'yellow', 'young',
+];
+
+const NOUNS = [
+  'actors', 'apples', 'baboons', 'badgers', 'bags', 'bananas', 'beans', 'bears',
+  'bees', 'berries', 'birds', 'bottles', 'brooms', 'buckets', 'camels', 'candles',
+  'carrots', 'cats', 'chairs', 'cheetahs', 'cherries', 'clouds', 'cobras', 'coins',
+  'cows', 'crabs', 'dancers', 'deserts', 'donkeys', 'doors', 'dragons', 'drums',
+  'ducks', 'eagles', 'eels', 'eggs', 'elephants', 'fans', 'fishes', 'flies',
+  'flowers', 'foxes', 'frogs', 'games', 'geese', 'ghosts', 'goats', 'grapes',
+  'guitars', 'hats', 'heroes', 'hornets', 'horses', 'hotels', 'houses', 'islands',
+  'jeans', 'kangaroos', 'kings', 'kittens', 'knives', 'lemons', 'lions', 'lizards',
+  'mangoes', 'melons', 'mice', 'monkeys', 'moons', 'moose', 'needles', 'news',
+  'onions', 'oranges', 'otters', 'owls', 'pandas', 'parrots', 'paws', 'pears',
+  'peas', 'penguins', 'pigs', 'planes', 'planets', 'plants', 'plums', 'poems',
+  'points', 'porcupines', 'pumpkins', 'queens', 'rabbits', 'radios', 'ravens', 'rivers',
+  'rocks', 'rockets', 'roses', 'rules', 'seals', 'sheep', 'shirts', 'shoes',
+  'shrimps', 'singers', 'snails', 'snakes', 'spiders', 'spies', 'squids', 'stars',
+  'suns', 'tables', 'teams', 'tigers', 'tomatoes', 'trains', 'trees', 'turkeys',
+  'turtles', 'waves', 'weeks', 'windows', 'wolves', 'zebras',
+];
 
 /**
  * Parse command line arguments.
  */
 function parseArgs() {
   const args = process.argv.slice(2);
+  let bumpType = 'patch';
   let description = '';
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--description' && args[i + 1]) {
+    if (args[i] === '--bump-type' && args[i + 1]) {
+      bumpType = args[i + 1];
+      i++;
+    } else if (args[i] === '--description' && args[i + 1]) {
       description = args[i + 1];
       i++;
     }
   }
 
-  return { description };
-}
-
-/**
- * Generate a timestamp-based filename.
- * @returns {string} Filename in format YYYYMMDD_HHMMSS
- */
-function generateTimestamp() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-
-  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
-}
-
-/**
- * Get current git branch name.
- * @returns {string} Branch name or 'unknown'
- */
-function getBranchName() {
-  try {
-    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
-  } catch {
-    return 'unknown';
+  if (!['major', 'minor', 'patch'].includes(bumpType)) {
+    console.error('Error: --bump-type must be one of: major, minor, patch');
+    process.exit(1);
   }
+
+  if (!description) {
+    console.error('Error: --description is required');
+    process.exit(1);
+  }
+
+  return { bumpType, description };
 }
 
 /**
- * Sanitize a string for use in filename.
- * @param {string} str - String to sanitize
- * @returns {string} Sanitized string
+ * Generate a random changeset name (adjective-noun pattern).
+ * @returns {string} Random name like "happy-tigers"
  */
-function sanitizeForFilename(str) {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 50);
+function generateChangesetName() {
+  const adjective = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  return `${adjective}-${noun}`;
 }
 
 /**
- * Generate the fragment template content.
- * @returns {string} Template content
+ * Generate the changeset content in JS changesets format.
+ * @param {string} bumpType - Version bump type
+ * @param {string} description - Change description
+ * @returns {string} Changeset content
  */
-function generateTemplate() {
-  return `### Added
+function generateContent(bumpType, description) {
+  return `---
+'${PACKAGE_NAME}': ${bumpType}
+---
 
-- Add your changes here
-
-### Changed
-
-- Add your changes here
-
-### Fixed
-
-- Add your changes here
+${description}
 `;
 }
 
@@ -93,30 +114,28 @@ function generateTemplate() {
  * Main function.
  */
 function main() {
-  const { description } = parseArgs();
+  const { bumpType, description } = parseArgs();
   const projectRoot = process.cwd();
-  const changelogDir = join(projectRoot, 'changelog.d');
+  const changesetDir = join(projectRoot, '.changeset');
 
-  // Ensure changelog.d directory exists
-  if (!existsSync(changelogDir)) {
-    mkdirSync(changelogDir, { recursive: true });
-    console.log('Created changelog.d directory');
+  // Ensure .changeset directory exists
+  if (!existsSync(changesetDir)) {
+    mkdirSync(changesetDir, { recursive: true });
+    console.log('Created .changeset directory');
   }
 
   // Generate filename
-  const timestamp = generateTimestamp();
-  const branch = sanitizeForFilename(getBranchName());
-  const desc = description ? `_${sanitizeForFilename(description)}` : '';
-  const filename = `${timestamp}_${branch}${desc}.md`;
-  const filePath = join(changelogDir, filename);
+  const name = generateChangesetName();
+  const filename = `${name}.md`;
+  const filePath = join(changesetDir, filename);
 
-  // Write template
-  const template = generateTemplate();
-  writeFileSync(filePath, template);
+  // Write changeset file
+  const content = generateContent(bumpType, description);
+  writeFileSync(filePath, content);
 
-  console.log(`Created changelog fragment: changelog.d/${filename}`);
-  console.log('\nEdit this file to describe your changes.');
-  console.log('Remove any sections that don\'t apply to your changes.');
+  console.log(`Created changeset: .changeset/${filename}`);
+  console.log(`  Bump type: ${bumpType}`);
+  console.log(`  Description: ${description}`);
 }
 
 main();

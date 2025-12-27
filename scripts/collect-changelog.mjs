@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
- * Changelog fragment collection script.
+ * Changelog collection script.
  *
- * Collects all changelog fragments from changelog.d/ and merges them
+ * Collects all changesets from .changeset/ and merges them
  * into CHANGELOG.md under a new version entry.
  *
  * Usage:
- *   bun scripts/collect-changelog.mjs [--dry-run]
+ *   bun scripts/collect-changelog.mjs [--version <version>] [--dry-run]
  */
 
-import { readFileSync, writeFileSync, readdirSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, unlinkSync, existsSync, statSync } from 'fs';
 import { join, basename } from 'path';
+
+// Package name - update this when forking the template
+const PACKAGE_NAME = 'my-package';
 
 /**
  * Parse command line arguments.
@@ -18,14 +21,18 @@ import { join, basename } from 'path';
 function parseArgs() {
   const args = process.argv.slice(2);
   let dryRun = false;
+  let version = null;
 
-  for (const arg of args) {
-    if (arg === '--dry-run') {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dry-run') {
       dryRun = true;
+    } else if (args[i] === '--version' && args[i + 1]) {
+      version = args[i + 1];
+      i++;
     }
   }
 
-  return { dryRun };
+  return { dryRun, version };
 }
 
 /**
@@ -43,37 +50,47 @@ function getCurrentVersion(pomPath) {
 }
 
 /**
- * Find all changelog fragment files.
- * @param {string} changelogDir - Path to changelog.d directory
- * @returns {string[]} Array of fragment file paths
+ * Find all changeset files.
+ * @param {string} changesetDir - Path to .changeset directory
+ * @returns {Array<{path: string, mtime: Date}>} Array of changeset file info
  */
-function findFragments(changelogDir) {
-  if (!existsSync(changelogDir)) {
+function findChangesets(changesetDir) {
+  if (!existsSync(changesetDir)) {
     return [];
   }
 
-  return readdirSync(changelogDir)
-    .filter((file) => file.endsWith('.md') && file !== 'README.md')
-    .map((file) => join(changelogDir, file))
-    .sort();
+  return readdirSync(changesetDir)
+    .filter((file) =>
+      file.endsWith('.md') &&
+      file !== 'README.md'
+    )
+    .map((file) => {
+      const filePath = join(changesetDir, file);
+      const stats = statSync(filePath);
+      return { path: filePath, mtime: stats.mtime };
+    })
+    .sort((a, b) => a.mtime - b.mtime); // Sort by modification time (oldest first)
 }
 
 /**
- * Read and combine fragment contents.
- * @param {string[]} fragmentPaths - Array of fragment file paths
- * @returns {string} Combined content
+ * Parse a changeset file and extract description.
+ * @param {string} filePath - Path to changeset file
+ * @returns {string|null} Description or null if invalid
  */
-function combineFragments(fragmentPaths) {
-  const contents = [];
+function parseChangeset(filePath) {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
 
-  for (const path of fragmentPaths) {
-    const content = readFileSync(path, 'utf-8').trim();
-    if (content) {
-      contents.push(content);
+    // Match frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (!frontmatterMatch) {
+      return null;
     }
-  }
 
-  return contents.join('\n\n');
+    return frontmatterMatch[2].trim();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -133,11 +150,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 }
 
 /**
- * Delete processed fragment files.
- * @param {string[]} fragmentPaths - Array of fragment file paths
+ * Delete processed changeset files.
+ * @param {Array<{path: string}>} changesetFiles - Array of changeset file info
  */
-function deleteFragments(fragmentPaths) {
-  for (const path of fragmentPaths) {
+function deleteChangesets(changesetFiles) {
+  for (const { path } of changesetFiles) {
     unlinkSync(path);
     console.log(`Deleted: ${basename(path)}`);
   }
@@ -147,41 +164,48 @@ function deleteFragments(fragmentPaths) {
  * Main function.
  */
 function main() {
-  const { dryRun } = parseArgs();
+  const { dryRun, version: providedVersion } = parseArgs();
   const projectRoot = process.cwd();
   const pomPath = join(projectRoot, 'pom.xml');
-  const changelogDir = join(projectRoot, 'changelog.d');
+  const changesetDir = join(projectRoot, '.changeset');
   const changelogPath = join(projectRoot, 'CHANGELOG.md');
 
-  const version = getCurrentVersion(pomPath);
-  console.log(`Collecting changelog fragments for version ${version}...`);
+  const version = providedVersion || getCurrentVersion(pomPath);
+  console.log(`Collecting changesets for version ${version}...`);
 
-  const fragments = findFragments(changelogDir);
+  const changesetFiles = findChangesets(changesetDir);
 
-  if (fragments.length === 0) {
-    console.log('No changelog fragments found.');
+  if (changesetFiles.length === 0) {
+    console.log('No changesets found.');
     return;
   }
 
-  console.log(`Found ${fragments.length} fragment(s):`);
-  for (const path of fragments) {
+  console.log(`Found ${changesetFiles.length} changeset(s):`);
+
+  // Parse and combine all changesets
+  const descriptions = [];
+  for (const { path } of changesetFiles) {
     console.log(`  - ${basename(path)}`);
+    const description = parseChangeset(path);
+    if (description) {
+      descriptions.push(description);
+    }
   }
 
-  const content = combineFragments(fragments);
+  const combinedContent = descriptions.join('\n\n');
 
   if (dryRun) {
     console.log('\n[DRY RUN] Would add the following to CHANGELOG.md:');
     console.log(`\n## [${version}] - ${getCurrentDate()}\n`);
-    console.log(content);
+    console.log(combinedContent);
     console.log('\n[DRY RUN] No changes made.');
     return;
   }
 
-  updateChangelog(changelogPath, version, content);
+  updateChangelog(changelogPath, version, combinedContent);
   console.log(`Updated CHANGELOG.md with version ${version}`);
 
-  deleteFragments(fragments);
+  deleteChangesets(changesetFiles);
 
   console.log('\nChangelog collection complete!');
 }

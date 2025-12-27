@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Changelog fragment validation script.
+ * Changeset validation script.
  *
- * Validates that PR contains a proper changelog fragment file
- * in the changelog.d/ directory.
+ * Validates that PR contains a proper changeset file in the .changeset/ directory
+ * with the correct JS changesets format.
  *
  * Usage:
  *   bun scripts/validate-changeset.mjs
@@ -12,6 +12,9 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+
+// Package name - update this when forking the template
+const PACKAGE_NAME = 'my-package';
 
 /**
  * Get list of files changed in current PR.
@@ -57,65 +60,59 @@ function hasSourceChanges(changedFiles) {
 }
 
 /**
- * Find changelog fragment files in the changelog.d directory.
- * @param {string} changelogDir - Path to changelog.d
- * @returns {string[]} Array of fragment file names
+ * Validate changeset file content.
+ * @param {string} filePath - Path to changeset file
+ * @returns {object} Validation result { valid: boolean, type?: string, description?: string, error?: string }
  */
-function findFragments(changelogDir) {
-  if (!existsSync(changelogDir)) {
-    return [];
-  }
+function validateChangesetFile(filePath) {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
 
-  return readdirSync(changelogDir).filter(
-    (file) => file.endsWith('.md') && file !== 'README.md'
-  );
-}
+    // Check if changeset has the correct format with frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (!frontmatterMatch) {
+      return {
+        valid: false,
+        error: 'Changeset must have frontmatter section (---)',
+      };
+    }
 
-/**
- * Validate fragment content.
- * @param {string} fragmentPath - Path to fragment file
- * @returns {object} Validation result { valid: boolean, message: string }
- */
-function validateFragmentContent(fragmentPath) {
-  const content = readFileSync(fragmentPath, 'utf-8').trim();
+    const frontmatter = frontmatterMatch[1];
+    const description = frontmatterMatch[2].trim();
 
-  if (!content) {
-    return { valid: false, message: 'Fragment file is empty' };
-  }
+    // Check for version type (major, minor, or patch)
+    const versionTypeRegex = new RegExp(
+      `^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`,
+      'm'
+    );
+    const versionTypeMatch = frontmatter.match(versionTypeRegex);
 
-  // Check for category headers
-  const categories = [
-    '### Added',
-    '### Changed',
-    '### Deprecated',
-    '### Removed',
-    '### Fixed',
-    '### Security',
-  ];
+    if (!versionTypeMatch) {
+      return {
+        valid: false,
+        error: `Changeset must specify a version type for '${PACKAGE_NAME}' (major, minor, or patch)`,
+      };
+    }
 
-  const hasCategory = categories.some((cat) => content.includes(cat));
-  if (!hasCategory) {
+    // Validate description
+    if (!description) {
+      return {
+        valid: false,
+        error: 'Changeset must include a non-empty description after the frontmatter',
+      };
+    }
+
+    return {
+      valid: true,
+      type: versionTypeMatch[1],
+      description,
+    };
+  } catch (error) {
     return {
       valid: false,
-      message: 'Fragment must include at least one category (### Added, ### Changed, etc.)',
+      error: `Failed to read changeset file: ${error.message}`,
     };
   }
-
-  // Check for actual content (not just template)
-  const lines = content.split('\n').filter(
-    (line) => line.trim() && !line.startsWith('#')
-  );
-
-  if (lines.length === 0) {
-    return { valid: false, message: 'Fragment has no content under category headers' };
-  }
-
-  // Check that content isn't template placeholder
-  if (content.includes('Add your changes here')) {
-    return { valid: false, message: 'Fragment contains template placeholder text' };
-  }
-
-  return { valid: true, message: 'Fragment is valid' };
 }
 
 /**
@@ -123,9 +120,9 @@ function validateFragmentContent(fragmentPath) {
  */
 function main() {
   const projectRoot = process.cwd();
-  const changelogDir = join(projectRoot, 'changelog.d');
+  const changesetDir = join(projectRoot, '.changeset');
 
-  console.log('Validating changelog fragments...\n');
+  console.log('Validating changesets...\n');
 
   // Get changed files
   const changedFiles = getChangedFiles();
@@ -133,49 +130,52 @@ function main() {
 
   // Check if this is a source change that requires changelog
   if (!hasSourceChanges(changedFiles)) {
-    console.log('\nNo source code changes detected. Changelog fragment not required.');
+    console.log('\nNo source code changes detected. Changeset not required.');
     process.exit(0);
   }
 
-  console.log('Source code changes detected. Checking for changelog fragment...\n');
+  console.log('Source code changes detected. Checking for changeset...\n');
 
-  // Check for changelog fragment in changed files
-  const changelogChanges = changedFiles.filter((file) =>
-    file.startsWith('changelog.d/') && file.endsWith('.md') && !file.endsWith('README.md')
+  // Check for changeset files in changed files
+  const changesetChanges = changedFiles.filter((file) =>
+    file.startsWith('.changeset/') &&
+    file.endsWith('.md') &&
+    !file.endsWith('README.md') &&
+    !file.endsWith('config.json')
   );
 
-  if (changelogChanges.length === 0) {
-    console.warn('WARNING: No changelog fragment found in this PR.');
-    console.warn('\nPlease create a changelog fragment file in changelog.d/');
-    console.warn('Example: changelog.d/20241201_120000_my_change.md');
-    console.warn('\nSee changelog.d/README.md for format instructions.');
+  if (changesetChanges.length === 0) {
+    console.warn('WARNING: No changeset found in this PR.');
+    console.warn('\nPlease create a changeset file in .changeset/');
+    console.warn('Run: bun scripts/create-manual-changeset.mjs --bump-type patch --description "Your description"');
+    console.warn('\nSee .changeset/README.md for format instructions.');
 
     // Exit with warning (0) not error, to not block PR
-    // Change to process.exit(1) if you want to enforce fragments
+    // Change to process.exit(1) if you want to enforce changesets
     process.exit(0);
   }
 
-  // Validate each fragment
+  // Validate each changeset
   let allValid = true;
-  for (const fragmentFile of changelogChanges) {
-    const fragmentPath = join(projectRoot, fragmentFile);
-    console.log(`Validating: ${fragmentFile}`);
+  for (const changesetFile of changesetChanges) {
+    const changesetPath = join(projectRoot, changesetFile);
+    console.log(`Validating: ${changesetFile}`);
 
-    const result = validateFragmentContent(fragmentPath);
+    const result = validateChangesetFile(changesetPath);
     if (result.valid) {
-      console.log(`  OK: ${result.message}`);
+      console.log(`  OK: ${result.type} - ${result.description.slice(0, 50)}...`);
     } else {
-      console.error(`  ERROR: ${result.message}`);
+      console.error(`  ERROR: ${result.error}`);
       allValid = false;
     }
   }
 
   if (!allValid) {
-    console.error('\nSome changelog fragments have validation errors.');
+    console.error('\nSome changesets have validation errors.');
     process.exit(1);
   }
 
-  console.log('\nAll changelog fragments are valid!');
+  console.log('\nAll changesets are valid!');
   process.exit(0);
 }
 
