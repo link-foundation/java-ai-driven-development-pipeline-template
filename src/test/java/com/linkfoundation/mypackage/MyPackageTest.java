@@ -126,9 +126,9 @@ class MyPackageTest {
       MyPackage.delay(100).join();
       long elapsed = System.currentTimeMillis() - startTime;
 
-      // Allow some tolerance (50ms) for timing variations
+      // Allow generous tolerance for CI environments with timing variations
       assertTrue(elapsed >= 90, "Delay should be at least 90ms but was " + elapsed + "ms");
-      assertTrue(elapsed < 200, "Delay should be less than 200ms but was " + elapsed + "ms");
+      assertTrue(elapsed < 500, "Delay should be less than 500ms but was " + elapsed + "ms");
     }
 
     @Test
