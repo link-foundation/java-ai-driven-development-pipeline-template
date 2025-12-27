@@ -30,20 +30,17 @@ Thank you for your interest in contributing! This document provides guidelines a
    git clone https://github.com/YOUR_USERNAME/java-ai-driven-development-pipeline-template.git
    cd java-ai-driven-development-pipeline-template
    ```
-
 2. **Verify Java and Maven versions**:
 
    ```bash
    java --version    # Should be 17+
    mvn --version     # Should be 3.8+
    ```
-
 3. **Install dependencies and build**:
 
    ```bash
    mvn clean install
    ```
-
 4. **Install pre-commit hooks** (optional but recommended):
 
    ```bash
@@ -77,7 +74,6 @@ git checkout -b feature/your-feature-name
    mvn spotbugs:check    # Static analysis
    mvn test              # Unit tests
    ```
-
 4. Create a changeset (see [Changesets](#changesets))
 5. Commit your changes:
 
@@ -221,7 +217,6 @@ Each changeset has two parts:
 
 1. **Frontmatter** (between `---` markers):
    - Package name and version bump type (major, minor, or patch)
-
 2. **Description**:
    - Clear description of what changed
    - Use present tense ("Add feature" not "Added feature")
@@ -288,11 +283,11 @@ Releases are automated through GitHub Actions using the changeset workflow.
 
 ### Release Modes (via workflow_dispatch)
 
-| Mode | Description |
-|------|-------------|
-| `changeset` | Release based on pending changesets (default) |
-| `instant` | Direct version bump without changesets |
-| `changeset-pr` | Create a PR with a new changeset |
+|      Mode      |                  Description                  |
+|----------------|-----------------------------------------------|
+| `changeset`    | Release based on pending changesets (default) |
+| `instant`      | Direct version bump without changesets        |
+| `changeset-pr` | Create a PR with a new changeset              |
 
 ### Manual Release
 

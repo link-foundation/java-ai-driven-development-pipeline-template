@@ -39,7 +39,6 @@ Each changeset file has two parts:
 
 1. **Frontmatter** (between `---` markers):
    - Package name and version bump type (major, minor, or patch)
-
 2. **Description**:
    - Clear description of what changed
    - Use present tense ("Add feature" not "Added feature")
@@ -76,3 +75,4 @@ Add async delay function with CompletableFuture support for non-blocking operati
 - Be concise but descriptive in your descriptions
 - The bump type determines the version number change
 - Multiple changesets are automatically merged during release
+

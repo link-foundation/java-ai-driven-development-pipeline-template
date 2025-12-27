@@ -163,11 +163,11 @@ Description of the changes made.
 
 ### Automated Workflows
 
-|     Trigger     |                     Actions                      |
-|-----------------|--------------------------------------------------|
-| Pull Request    | Lint, format check, tests, changeset validation  |
-| Push to main    | All checks + auto-release if changesets present  |
-| Manual dispatch | Changeset, instant, or changeset-pr mode         |
+|     Trigger     |                     Actions                     |
+|-----------------|-------------------------------------------------|
+| Pull Request    | Lint, format check, tests, changeset validation |
+| Push to main    | All checks + auto-release if changesets present |
+| Manual dispatch | Changeset, instant, or changeset-pr mode        |
 
 ### Test Matrix
 
@@ -188,11 +188,11 @@ The release process uses a **changeset-based workflow** similar to JavaScript's 
 
 ### Release Modes (via workflow_dispatch)
 
-| Mode           | Description                                  |
-|----------------|----------------------------------------------|
-| `changeset`    | Release based on pending changesets (default)|
-| `instant`      | Direct version bump without changesets       |
-| `changeset-pr` | Create a PR with a new changeset             |
+|      Mode      |                  Description                  |
+|----------------|-----------------------------------------------|
+| `changeset`    | Release based on pending changesets (default) |
+| `instant`      | Direct version bump without changesets        |
+| `changeset-pr` | Create a PR with a new changeset              |
 
 ## Configuration
 
@@ -217,16 +217,16 @@ Key sections to customize:
 
 ## Scripts Reference
 
-|            Script             |                Purpose                  |
-|-------------------------------|-----------------------------------------|
-| `check-file-size.mjs`         | Validate files don't exceed 1000 lines  |
-| `bump-version.mjs`            | Bump semantic version in pom.xml        |
-| `collect-changelog.mjs`       | Collect changesets into CHANGELOG.md    |
-| `create-github-release.mjs`   | Create GitHub release                   |
-| `create-manual-changeset.mjs` | Create a new changeset file             |
-| `merge-changesets.mjs`        | Merge multiple changesets into one      |
-| `validate-changeset.mjs`      | Validate changeset format               |
-| `version-and-commit.mjs`      | Full release workflow                   |
+|            Script             |                Purpose                 |
+|-------------------------------|----------------------------------------|
+| `check-file-size.mjs`         | Validate files don't exceed 1000 lines |
+| `bump-version.mjs`            | Bump semantic version in pom.xml       |
+| `collect-changelog.mjs`       | Collect changesets into CHANGELOG.md   |
+| `create-github-release.mjs`   | Create GitHub release                  |
+| `create-manual-changeset.mjs` | Create a new changeset file            |
+| `merge-changesets.mjs`        | Merge multiple changesets into one     |
+| `validate-changeset.mjs`      | Validate changeset format              |
+| `version-and-commit.mjs`      | Full release workflow                  |
 
 ## Design Decisions
 

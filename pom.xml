@@ -180,6 +180,7 @@
                         </includes>
                         <excludes>
                             <exclude>node_modules/**</exclude>
+                            <exclude>.changeset/**</exclude>
                         </excludes>
                         <flexmark/>
                     </markdown>
