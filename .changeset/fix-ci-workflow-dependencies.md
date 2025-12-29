@@ -1,5 +1,5 @@
 ---
-'java-ai-driven-development-pipeline-template': patch
+'my-package': patch
 ---
 
 Fix CI/CD check differences between pull request and push events
