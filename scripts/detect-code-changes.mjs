@@ -38,6 +38,7 @@
 
 import { execSync } from 'child_process';
 import { appendFileSync } from 'fs';
+import { printUntrusted } from './github-actions-log.mjs';
 
 /**
  * Execute a shell command and return trimmed output
@@ -144,7 +145,7 @@ function detectChanges() {
   if (changedFiles.length === 0) {
     console.log('  (none)');
   } else {
-    changedFiles.forEach((file) => console.log(`  ${file}`));
+    changedFiles.forEach((file) => printUntrusted(file));
   }
   console.log('');
 
@@ -179,7 +180,7 @@ function detectChanges() {
   if (codeChangedFiles.length === 0) {
     console.log('  (none)');
   } else {
-    codeChangedFiles.forEach((file) => console.log(`  ${file}`));
+    codeChangedFiles.forEach((file) => printUntrusted(file));
   }
   console.log('');
 

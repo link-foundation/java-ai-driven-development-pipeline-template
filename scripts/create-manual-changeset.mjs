@@ -10,6 +10,7 @@
 
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { printUntrusted } from './github-actions-log.mjs';
 
 // Package name - update this when forking the template
 const PACKAGE_NAME = 'my-package';
@@ -135,7 +136,8 @@ function main() {
 
   console.log(`Created changeset: .changeset/${filename}`);
   console.log(`  Bump type: ${bumpType}`);
-  console.log(`  Description: ${description}`);
+  console.log('  Description:');
+  printUntrusted(description);
 }
 
 main();

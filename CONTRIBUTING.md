@@ -280,6 +280,12 @@ Releases are automated through GitHub Actions using the changeset workflow.
    - Updates CHANGELOG.md
    - Creates a GitHub release
    - Uploads JAR artifacts
+   - Downloads the published JARs and compares them byte-for-byte with the build
+
+The provided release workflow distributes JARs through GitHub Releases; it does
+not deploy to Maven Central. Projects that add Central publishing must configure
+the publisher, credentials, signing, and required metadata, then verify that the
+artifact is resolvable before creating the GitHub release.
 
 ### Release Modes (via workflow_dispatch)
 

@@ -30,10 +30,6 @@ on:
         required: false
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   JAVA_VERSION: '21'
   JAVA_DISTRIBUTION: 'temurin'
@@ -46,6 +42,9 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_dispatch'
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+      cancel-in-progress: true
     outputs:
       java-changed: ${{ steps.changes.outputs.java-changed }}
       pom-changed: ${{ steps.changes.outputs.pom-changed }}
@@ -81,6 +80,9 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     needs: [detect-changes]
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+      cancel-in-progress: true
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'push' ||
@@ -114,6 +116,16 @@ jobs:
       - name: Check file sizes
         run: bun scripts/check-file-size.mjs
 
+      - name: Run CI security regression tests
+        run: node --test scripts/*.test.mjs
+
+      - name: Lint GitHub Actions workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          # GitHub supports concurrency.queue, pending actionlint support:
+          # https://github.com/rhysd/actionlint/pull/661
+          args: -color -ignore unexpected.key.*queue
+
   # =============================================================================
   # Build and Test
   # =============================================================================
@@ -121,8 +133,13 @@ jobs:
     name: Test (Java ${{ matrix.java }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: [detect-changes, changeset-check]
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}-${{ matrix.java }}
+      cancel-in-progress: true
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     # Run if: push event, workflow_dispatch, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
-    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped')
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix:
@@ -143,14 +160,18 @@ jobs:
         run: mvn test jacoco:report -B
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
-        uses: codecov/codecov-action@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21' && env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v7
         with:
-          file: target/site/jacoco/jacoco.xml
+          token: ${{ env.CODECOV_TOKEN }}
+          files: target/site/jacoco/jacoco.xml
+          disable_search: true
           flags: unittests
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+      - name: Note that coverage was not uploaded
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21' && env.CODECOV_TOKEN == ''
+        run: echo "::notice::CODECOV_TOKEN is not configured, so coverage was not uploaded"
 
   # =============================================================================
   # Build Package
@@ -159,8 +180,11 @@ jobs:
     name: Build Package
     runs-on: ubuntu-latest
     needs: [lint, test]
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-build
+      cancel-in-progress: true
     # Run only if lint and test succeeded (handles skipped lint gracefully)
-    if: always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.test.result == 'success'
+    if: ${{ !cancelled() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.test.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -198,6 +222,9 @@ jobs:
     name: Changeset Check
     runs-on: ubuntu-latest
     needs: [detect-changes]
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
+      cancel-in-progress: true
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
       - name: Checkout code
@@ -223,6 +250,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
     steps:
@@ -248,12 +279,12 @@ jobs:
         id: changesets
         run: |
           CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" 2>/dev/null | wc -l)
-          echo "count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+          echo "count=$CHANGESET_COUNT" >> "$GITHUB_OUTPUT"
           if [ "$CHANGESET_COUNT" -gt 0 ]; then
-            echo "has_changesets=true" >> $GITHUB_OUTPUT
+            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
             echo "Found $CHANGESET_COUNT changeset(s)"
           else
-            echo "has_changesets=false" >> $GITHUB_OUTPUT
+            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
             echo "No changesets found"
           fi
 
@@ -285,7 +316,23 @@ jobs:
         if: steps.release.outputs.released == 'true'
         run: |
           TAG="v${{ steps.release.outputs.new_version }}"
-          gh release upload "$TAG" target/*.jar --clobber || true
+          gh release upload "$TAG" target/*.jar --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published release artifacts
+        if: steps.release.outputs.released == 'true'
+        run: |
+          TAG="v${{ steps.release.outputs.new_version }}"
+          VERIFY_DIRECTORY="$(mktemp -d)"
+          trap 'rm -rf -- "$VERIFY_DIRECTORY"' EXIT
+          gh release download "$TAG" --pattern '*.jar' --dir "$VERIFY_DIRECTORY"
+          for artifact in target/*.jar; do
+            downloaded="$VERIFY_DIRECTORY/$(basename "$artifact")"
+            test -f "$downloaded"
+            cmp -- "$artifact" "$downloaded"
+          done
+          echo "Verified that every release JAR is downloadable and byte-identical."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -297,6 +344,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset'
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
     steps:
@@ -344,7 +395,23 @@ jobs:
         if: steps.release.outputs.released == 'true'
         run: |
           TAG="v${{ steps.release.outputs.new_version }}"
-          gh release upload "$TAG" target/*.jar --clobber || true
+          gh release upload "$TAG" target/*.jar --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published release artifacts
+        if: steps.release.outputs.released == 'true'
+        run: |
+          TAG="v${{ steps.release.outputs.new_version }}"
+          VERIFY_DIRECTORY="$(mktemp -d)"
+          trap 'rm -rf -- "$VERIFY_DIRECTORY"' EXIT
+          gh release download "$TAG" --pattern '*.jar' --dir "$VERIFY_DIRECTORY"
+          for artifact in target/*.jar; do
+            downloaded="$VERIFY_DIRECTORY/$(basename "$artifact")"
+            test -f "$downloaded"
+            cmp -- "$artifact" "$downloaded"
+          done
+          echo "Verified that every release JAR is downloadable and byte-identical."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -356,6 +423,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
     steps:
@@ -379,9 +450,10 @@ jobs:
 
       - name: Run version and commit script
         id: release
-        run: bun scripts/version-and-commit.mjs --mode instant --bump-type ${{ inputs.bump_type }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUMP_TYPE: ${{ inputs.bump_type }}
+        run: bun scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE"
 
       - name: Build release artifacts
         if: steps.release.outputs.released == 'true'
@@ -400,7 +472,23 @@ jobs:
         if: steps.release.outputs.released == 'true'
         run: |
           TAG="v${{ steps.release.outputs.new_version }}"
-          gh release upload "$TAG" target/*.jar --clobber || true
+          gh release upload "$TAG" target/*.jar --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published release artifacts
+        if: steps.release.outputs.released == 'true'
+        run: |
+          TAG="v${{ steps.release.outputs.new_version }}"
+          VERIFY_DIRECTORY="$(mktemp -d)"
+          trap 'rm -rf -- "$VERIFY_DIRECTORY"' EXIT
+          gh release download "$TAG" --pattern '*.jar' --dir "$VERIFY_DIRECTORY"
+          for artifact in target/*.jar; do
+            downloaded="$VERIFY_DIRECTORY/$(basename "$artifact")"
+            test -f "$downloaded"
+            cmp -- "$artifact" "$downloaded"
+          done
+          echo "Verified that every release JAR is downloadable and byte-identical."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -411,6 +499,10 @@ jobs:
     name: Create Changeset PR
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
       pull-requests: write
@@ -426,13 +518,16 @@ jobs:
           bun-version: latest
 
       - name: Create changeset file
+        env:
+          BUMP_TYPE: ${{ inputs.bump_type }}
+          DESCRIPTION_INPUT: ${{ inputs.description }}
         run: |
-          DESCRIPTION="${{ inputs.description }}"
+          DESCRIPTION="$DESCRIPTION_INPUT"
           if [ -z "$DESCRIPTION" ]; then
             DESCRIPTION="Manual release"
           fi
           bun scripts/create-manual-changeset.mjs \
-            --bump-type "${{ inputs.bump_type }}" \
+            --bump-type "$BUMP_TYPE" \
             --description "$DESCRIPTION"
 
       - name: Create Pull Request
