@@ -11,6 +11,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
+import { printUntrusted } from './github-actions-log.mjs';
 
 const MAX_LINES_DEFAULT = 1000;
 
@@ -99,7 +100,8 @@ function main() {
     const relativePath = file.replace(projectRoot + '/', '');
 
     if (verbose) {
-      console.log(`  ${relativePath}: ${lineCount} lines`);
+      console.log(`  ${lineCount} lines:`);
+      printUntrusted(relativePath);
     }
 
     if (lineCount > maxLines) {
@@ -110,7 +112,8 @@ function main() {
   if (violations.length > 0) {
     console.error('\nFile size violations found:');
     for (const { file, lines } of violations) {
-      console.error(`  ${file}: ${lines} lines (max: ${maxLines})`);
+      console.error(`  ${lines} lines (max: ${maxLines}):`);
+      printUntrusted(file);
     }
     console.error(`\nTotal violations: ${violations.length}`);
     process.exit(1);

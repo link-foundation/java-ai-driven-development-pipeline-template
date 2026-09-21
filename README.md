@@ -172,7 +172,7 @@ Description of the changes made.
 ### Test Matrix
 
 - **Operating Systems**: Linux, macOS, Windows
-- **Java Versions**: 17, 21
+- **Java Version**: 21
 
 ### Release Process
 
@@ -185,6 +185,14 @@ The release process uses a **changeset-based workflow** similar to JavaScript's 
    - Bumps version automatically
    - Updates CHANGELOG.md
    - Creates GitHub release
+   - Uploads the JARs, downloads them again, and verifies they are byte-identical
+
+This template publishes JARs as **GitHub release assets only**. It does not
+publish to Maven Central. A project that needs Maven Central distribution must
+configure the [Central Publishing Maven Plugin](https://central.sonatype.org/publish/publish-portal-maven/),
+credentials, signing, and required POM metadata. Its release workflow should
+also wait until the artifact can be resolved from Central before announcing the
+GitHub release.
 
 ### Release Modes (via workflow_dispatch)
 

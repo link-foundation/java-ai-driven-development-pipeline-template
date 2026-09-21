@@ -10,34 +10,67 @@
  */
 
 import { readdirSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { execSync } from 'child_process';
+import { isAbsolute, join } from 'path';
+import { execFileSync } from 'child_process';
+import { printUntrusted } from './github-actions-log.mjs';
 
 // Package name - update this when forking the template
 const PACKAGE_NAME = 'my-package';
 
 /**
  * Get list of files changed in current PR.
- * @returns {string[]} Array of changed file paths
+ * @returns {string[]|null} Changed paths, or null when the diff is unavailable
  */
 function getChangedFiles() {
+  const baseBranch = process.env.GITHUB_BASE_REF || 'main';
+
+  // A bounded single-branch checkout does not have enough history for a
+  // three-dot diff. Try to make the remote base resolvable before asking Git.
   try {
-    // Try to get files from PR diff
-    const baseBranch = process.env.GITHUB_BASE_REF || 'main';
-    const output = execSync(
-      `git diff --name-only origin/${baseBranch}...HEAD`,
-      { encoding: 'utf-8' }
+    const gitDirectory = execFileSync('git', ['rev-parse', '--git-dir'], {
+      encoding: 'utf8',
+    }).trim();
+    const fetchArguments = ['fetch', '--no-tags'];
+    const shallowFile = join(
+      isAbsolute(gitDirectory) ? gitDirectory : join(process.cwd(), gitDirectory),
+      'shallow'
+    );
+    if (existsSync(shallowFile)) {
+      fetchArguments.push('--unshallow');
+    }
+    fetchArguments.push(
+      'origin',
+      `+refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}`
+    );
+    execFileSync('git', fetchArguments, { stdio: 'ignore' });
+  } catch {
+    // Offline and complete repositories can still have a usable base ref.
+  }
+
+  try {
+    const output = execFileSync(
+      'git',
+      ['diff', '--name-only', `origin/${baseBranch}...HEAD`, '--'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
     );
     return output.trim().split('\n').filter(Boolean);
-  } catch {
-    // Fallback: get all staged/unstaged changes
-    try {
-      const output = execSync('git diff --name-only HEAD', { encoding: 'utf-8' });
-      return output.trim().split('\n').filter(Boolean);
-    } catch {
-      return [];
-    }
+  } catch (error) {
+    console.warn('::warning::Could not determine the PR diff; validating every changeset instead.');
+    printUntrusted(`Git error: ${error.message.split('\n')[0]}`);
+    return null;
   }
+}
+
+/**
+ * List every changeset when Git cannot safely identify the PR's subset.
+ * @param {string} changesetDir - Absolute changeset directory path
+ * @returns {string[]} Repository-relative changeset paths
+ */
+function getAllChangesets(changesetDir) {
+  if (!existsSync(changesetDir)) return [];
+  return readdirSync(changesetDir)
+    .filter((file) => file.endsWith('.md') && file !== 'README.md')
+    .map((file) => `.changeset/${file}`);
 }
 
 /**
@@ -126,10 +159,10 @@ function main() {
 
   // Get changed files
   const changedFiles = getChangedFiles();
-  console.log(`Changed files: ${changedFiles.length}`);
+  console.log(`Changed files: ${changedFiles === null ? 'unavailable' : changedFiles.length}`);
 
   // Check if this is a source change that requires changelog
-  if (!hasSourceChanges(changedFiles)) {
+  if (changedFiles !== null && !hasSourceChanges(changedFiles)) {
     console.log('\nNo source code changes detected. Changeset not required.');
     process.exit(0);
   }
@@ -137,12 +170,14 @@ function main() {
   console.log('Source code changes detected. Checking for changeset...\n');
 
   // Check for changeset files in changed files
-  const changesetChanges = changedFiles.filter((file) =>
-    file.startsWith('.changeset/') &&
-    file.endsWith('.md') &&
-    !file.endsWith('README.md') &&
-    !file.endsWith('config.json')
-  );
+  const changesetChanges = changedFiles === null
+    ? getAllChangesets(changesetDir)
+    : changedFiles.filter((file) =>
+      file.startsWith('.changeset/') &&
+      file.endsWith('.md') &&
+      !file.endsWith('README.md') &&
+      !file.endsWith('config.json')
+    );
 
   if (changesetChanges.length === 0) {
     console.warn('WARNING: No changeset found in this PR.');
@@ -159,13 +194,16 @@ function main() {
   let allValid = true;
   for (const changesetFile of changesetChanges) {
     const changesetPath = join(projectRoot, changesetFile);
-    console.log(`Validating: ${changesetFile}`);
+    console.log('Validating changeset:');
+    printUntrusted(changesetFile);
 
     const result = validateChangesetFile(changesetPath);
     if (result.valid) {
-      console.log(`  OK: ${result.type} - ${result.description.slice(0, 50)}...`);
+      console.log(`  OK: ${result.type}`);
+      printUntrusted(`${result.description.slice(0, 50)}...`);
     } else {
-      console.error(`  ERROR: ${result.error}`);
+      console.error('  ERROR: Invalid changeset:');
+      printUntrusted(result.error);
       allValid = false;
     }
   }

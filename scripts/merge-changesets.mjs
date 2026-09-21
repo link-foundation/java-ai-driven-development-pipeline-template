@@ -11,6 +11,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, statSync } from 'fs';
 import { join, basename } from 'path';
+import { printUntrusted } from './github-actions-log.mjs';
 
 // Package name - update this when forking the template
 const PACKAGE_NAME = 'my-package';
@@ -105,7 +106,8 @@ function parseChangeset(filePath) {
     // Match frontmatter
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     if (!frontmatterMatch) {
-      console.warn(`Warning: Invalid format in ${basename(filePath)}`);
+      console.warn('Warning: Invalid changeset format in:');
+      printUntrusted(basename(filePath));
       return null;
     }
 
@@ -120,7 +122,8 @@ function parseChangeset(filePath) {
     const versionTypeMatch = frontmatter.match(versionTypeRegex);
 
     if (!versionTypeMatch) {
-      console.warn(`Warning: No valid bump type in ${basename(filePath)}`);
+      console.warn('Warning: No valid bump type in:');
+      printUntrusted(basename(filePath));
       return null;
     }
 
@@ -129,7 +132,8 @@ function parseChangeset(filePath) {
       description,
     };
   } catch (error) {
-    console.warn(`Warning: Failed to read ${basename(filePath)}: ${error.message}`);
+    console.warn('Warning: Failed to read changeset:');
+    printUntrusted(`${basename(filePath)}: ${error.message}`);
     return null;
   }
 }
@@ -189,7 +193,8 @@ function main() {
     const parsed = parseChangeset(path);
     if (parsed) {
       changesets.push({ ...parsed, path });
-      console.log(`  - ${basename(path)}: ${parsed.type}`);
+      console.log(`  ${parsed.type} changeset:`);
+      printUntrusted(basename(path));
     }
   }
 
@@ -218,7 +223,7 @@ ${combinedDescription}
 
   if (dryRun) {
     console.log('\n[DRY RUN] Would create merged changeset:');
-    console.log(mergedContent);
+    printUntrusted(mergedContent);
     console.log(`[DRY RUN] Would delete ${changesets.length} individual changesets`);
     return;
   }
@@ -232,7 +237,8 @@ ${combinedDescription}
   // Delete individual changesets
   for (const { path } of changesets) {
     unlinkSync(path);
-    console.log(`Deleted: ${basename(path)}`);
+    console.log('Deleted changeset:');
+    printUntrusted(basename(path));
   }
 
   console.log('\nChangeset merge complete!');

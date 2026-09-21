@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
@@ -42,9 +42,15 @@ function assertPayloadIsBracketed(output) {
   const lines = output.split(/\r?\n/);
   const payloadIndex = lines.findIndex((line) => line.includes(payload));
   assert.notEqual(payloadIndex, -1, 'fixture payload was not printed');
-  const stopMatch = lines[payloadIndex - 1]?.match(/^::stop-commands::([a-f0-9]{32})$/);
-  assert.ok(stopMatch, 'payload must immediately follow a random 128-bit stop token');
-  assert.equal(lines[payloadIndex + 1], `::${stopMatch[1]}::`);
+  const stopIndex = lines.findLastIndex(
+    (line, index) => index < payloadIndex && /^::stop-commands::[a-f0-9]{32}$/.test(line)
+  );
+  assert.notEqual(stopIndex, -1, 'payload must follow a random 128-bit stop token');
+  const token = lines[stopIndex].slice('::stop-commands::'.length);
+  const resumeIndex = lines.findIndex(
+    (line, index) => index > payloadIndex && line === `::${token}::`
+  );
+  assert.notEqual(resumeIndex, -1, 'payload must precede the matching resume token');
 }
 
 test('validator fails closed and validates every changeset when the base diff is unavailable', () => {
@@ -116,4 +122,3 @@ for (const [name, script, args, prepare] of [
     assertPayloadIsBracketed(result.stdout);
   });
 }
-

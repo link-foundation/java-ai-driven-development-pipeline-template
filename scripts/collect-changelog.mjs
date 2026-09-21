@@ -11,6 +11,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, unlinkSync, existsSync, statSync } from 'fs';
 import { join, basename } from 'path';
+import { printUntrusted } from './github-actions-log.mjs';
 
 // Package name - update this when forking the template
 const PACKAGE_NAME = 'my-package';
@@ -156,7 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 function deleteChangesets(changesetFiles) {
   for (const { path } of changesetFiles) {
     unlinkSync(path);
-    console.log(`Deleted: ${basename(path)}`);
+    console.log('Deleted changeset:');
+    printUntrusted(basename(path));
   }
 }
 
@@ -185,7 +187,7 @@ function main() {
   // Parse and combine all changesets
   const descriptions = [];
   for (const { path } of changesetFiles) {
-    console.log(`  - ${basename(path)}`);
+    printUntrusted(basename(path));
     const description = parseChangeset(path);
     if (description) {
       descriptions.push(description);
@@ -197,7 +199,7 @@ function main() {
   if (dryRun) {
     console.log('\n[DRY RUN] Would add the following to CHANGELOG.md:');
     console.log(`\n## [${version}] - ${getCurrentDate()}\n`);
-    console.log(combinedContent);
+    printUntrusted(combinedContent);
     console.log('\n[DRY RUN] No changes made.');
     return;
   }

@@ -68,10 +68,6 @@ function extractChangelogContent(changelogPath, version) {
 
   let content = changelog.slice(contentStart, endIndex).trim();
 
-  // Add Maven badge
-  const badge = `[![Maven Central](https://img.shields.io/maven-central/v/com.linkfoundation/my-package)](https://search.maven.org/artifact/com.linkfoundation/my-package/${version}/jar)`;
-  content = `${badge}\n\n${content}`;
-
   return content;
 }
 

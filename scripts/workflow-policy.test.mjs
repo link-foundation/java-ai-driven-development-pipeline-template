@@ -42,9 +42,10 @@ test('dispatch inputs are never interpolated directly into run scripts', () => {
 
 test('release workflow has the required cancellation and writer serialization policy', () => {
   assert.doesNotMatch(workflow, /^concurrency:/m, 'workflow-level concurrency can cancel writers');
-  assert.equal((workflow.match(/if: !cancelled\(\)/g) || []).length, 2);
+  assert.equal((workflow.match(/!cancelled\(\)/g) || []).length, 2);
   assert.equal((workflow.match(/group: main-writer-\$\{\{ github\.repository \}\}-main/g) || []).length, 4);
   assert.equal((workflow.match(/queue: max/g) || []).length, 4);
+  assert.equal((workflow.match(/cancel-in-progress: true/g) || []).length, 5);
 });
 
 test('Codecov upload is explicit, current, gated, and fail-closed', () => {
@@ -63,4 +64,3 @@ test('every release path verifies uploaded artifacts', () => {
 test('GitHub output-file redirections are quoted', () => {
   assert.doesNotMatch(workflow, />>\s+\$GITHUB_OUTPUT/);
 });
-
