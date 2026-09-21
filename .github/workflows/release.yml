@@ -124,7 +124,7 @@ jobs:
         with:
           # GitHub supports concurrency.queue, pending actionlint support:
           # https://github.com/rhysd/actionlint/pull/661
-          args: -color -ignore 'unexpected key "queue"'
+          args: -color -ignore unexpected.key.*queue
 
   # =============================================================================
   # Build and Test
