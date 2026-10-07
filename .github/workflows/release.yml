@@ -117,7 +117,7 @@ jobs:
         run: bun scripts/check-file-size.mjs
 
       - name: Run CI security regression tests
-        run: node --test scripts/*.test.mjs
+        run: node --test scripts/*.test.mjs experiments/*.test.mjs
 
       - name: Lint GitHub Actions workflows
         uses: docker://rhysd/actionlint:1.7.12
@@ -243,7 +243,7 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
 
   # =============================================================================
-  # Auto Release (on push to main with changesets)
+  # Auto Release (new changesets or recovery of a missing GitHub release)
   # =============================================================================
   auto-release:
     name: Auto Release
@@ -293,7 +293,6 @@ jobs:
         run: bun scripts/merge-changesets.mjs
 
       - name: Run version and commit script
-        if: steps.changesets.outputs.has_changesets == 'true'
         id: release
         run: bun scripts/version-and-commit.mjs --mode changeset
         env:
@@ -301,7 +300,20 @@ jobs:
 
       - name: Build release artifacts
         if: steps.release.outputs.released == 'true'
-        run: mvn package source:jar javadoc:jar -DskipTests -B
+        env:
+          SKIP_BUMP: ${{ steps.release.outputs.skip_bump }}
+          RELEASE_VERSION: ${{ steps.release.outputs.new_version }}
+        run: |
+          if [ "$SKIP_BUMP" = 'true' ]; then
+            RELEASE_SOURCE="$(mktemp -d)"
+            trap 'git worktree remove --force "$RELEASE_SOURCE"' EXIT
+            git worktree add --detach "$RELEASE_SOURCE" "refs/tags/v$RELEASE_VERSION"
+            mvn -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
+            mkdir -p target
+            cp "$RELEASE_SOURCE"/target/*.jar target/
+          else
+            mvn package source:jar javadoc:jar -DskipTests -B
+          fi
 
       - name: Create GitHub Release
         if: steps.release.outputs.released == 'true'
@@ -380,7 +392,20 @@ jobs:
 
       - name: Build release artifacts
         if: steps.release.outputs.released == 'true'
-        run: mvn package source:jar javadoc:jar -DskipTests -B
+        env:
+          SKIP_BUMP: ${{ steps.release.outputs.skip_bump }}
+          RELEASE_VERSION: ${{ steps.release.outputs.new_version }}
+        run: |
+          if [ "$SKIP_BUMP" = 'true' ]; then
+            RELEASE_SOURCE="$(mktemp -d)"
+            trap 'git worktree remove --force "$RELEASE_SOURCE"' EXIT
+            git worktree add --detach "$RELEASE_SOURCE" "refs/tags/v$RELEASE_VERSION"
+            mvn -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
+            mkdir -p target
+            cp "$RELEASE_SOURCE"/target/*.jar target/
+          else
+            mvn package source:jar javadoc:jar -DskipTests -B
+          fi
 
       - name: Create GitHub Release
         if: steps.release.outputs.released == 'true'

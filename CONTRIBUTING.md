@@ -282,6 +282,15 @@ Releases are automated through GitHub Actions using the changeset workflow.
    - Uploads JAR artifacts
    - Downloads the published JARs and compares them byte-for-byte with the build
 
+When no changesets remain, an automatic release or a manual changeset release
+checks the GitHub release for the current POM version. If `gh release view`
+reports `release not found` and that version's tag exists, it rebuilds from the
+tag and creates the missing release without bumping or committing a version.
+Authentication, network, and other lookup failures warn and skip recovery;
+set `RELEASE_DEBUG=1` to show the lookup error in protected logs. Existing
+releases are left alone. Recovery runs for the current version, so maintainers
+must backfill older missing versions manually.
+
 The provided release workflow distributes JARs through GitHub Releases; it does
 not deploy to Maven Central. Projects that add Central publishing must configure
 the publisher, credentials, signing, and required metadata, then verify that the

@@ -23,7 +23,8 @@
 
 import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
+import { githubReleaseState, validateReleaseVersion } from './github-release-state.mjs';
 
 // Package name - update this when forking the template
 const PACKAGE_NAME = 'my-package';
@@ -78,12 +79,14 @@ function exec(command, options = {}) {
  * @returns {string} Current version
  */
 function getCurrentVersion(pomPath) {
-  const content = readFileSync(pomPath, 'utf-8');
+  const content = readFileSync(pomPath, 'utf-8')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<parent>[\s\S]*?<\/parent>/, '');
   const match = content.match(/<project[^>]*>[\s\S]*?<version>([^<]+)<\/version>/);
   if (!match) {
     throw new Error('Could not find version in pom.xml');
   }
-  return match[1];
+  return validateReleaseVersion(match[1].trim());
 }
 
 /**
@@ -220,7 +223,7 @@ function updateJavaVersion(javaPath, oldVersion, newVersion) {
  */
 function tagExists(tag) {
   try {
-    exec(`git rev-parse ${tag}`, { stdio: 'ignore' });
+    execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tag}`], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -259,9 +262,21 @@ async function main() {
     const changesets = findChangesets(changesetDir);
 
     if (changesets.length === 0) {
-      console.log('No changesets found. Nothing to release.');
-      setOutput('released', 'false');
-      setOutput('already_released', 'true');
+      const currentVersion = getCurrentVersion(pomPath);
+      const tag = `v${currentVersion}`;
+      const state = githubReleaseState(tag);
+      const recover = state === 'missing' && tagExists(tag);
+      if (recover) {
+        console.log(`Recovering missing GitHub release ${tag} without a version bump.`);
+      } else if (state === 'missing') {
+        console.warn(`::warning::GitHub release ${tag} is missing, but its tag does not exist; skipping recovery.`);
+      } else {
+        console.log(`No changesets found. GitHub release ${tag}: ${state}.`);
+      }
+      setOutput('released', String(recover));
+      setOutput('skip_bump', String(recover));
+      setOutput('already_released', String(state === 'exists'));
+      setOutput('new_version', currentVersion);
       return;
     }
 
@@ -336,10 +351,14 @@ async function main() {
 
   // Set outputs
   setOutput('released', 'true');
+  setOutput('skip_bump', 'false');
   setOutput('new_version', newVersion);
   setOutput('bump_type', bumpType);
 
   console.log(`\nRelease ${newVersion} complete!`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

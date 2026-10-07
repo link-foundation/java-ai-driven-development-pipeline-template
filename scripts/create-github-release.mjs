@@ -10,7 +10,8 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { githubReleaseState, validateReleaseVersion } from './github-release-state.mjs';
 
 /**
  * Parse command line arguments.
@@ -35,7 +36,7 @@ function parseArgs() {
     process.exit(1);
   }
 
-  return { releaseVersion, repository };
+  return { releaseVersion: validateReleaseVersion(releaseVersion), repository };
 }
 
 /**
@@ -81,22 +82,21 @@ function createRelease(version, content, repository) {
   const tag = `v${version}`;
   const title = `Release ${version}`;
 
-  const repoArg = repository ? `--repo ${repository}` : '';
-
-  // Check if release already exists
-  try {
-    execSync(`gh release view ${tag} ${repoArg}`, { stdio: 'ignore' });
+  const state = githubReleaseState(tag, repository);
+  if (state === 'exists') {
     console.log(`Release ${tag} already exists, skipping.`);
     return;
-  } catch {
-    // Release doesn't exist, continue with creation
+  }
+  if (state === 'unknown') {
+    throw new Error(`Cannot safely create release ${tag}: its current state is unknown.`);
   }
 
   // Create the release using stdin for body to avoid escaping issues
-  const command = `gh release create ${tag} --title "${title}" --notes-file - ${repoArg}`;
+  const args = ['release', 'create', tag, '--verify-tag', '--title', title, '--notes-file', '-'];
+  if (repository) args.push('--repo', repository);
 
   try {
-    execSync(command, {
+    execFileSync('gh', args, {
       input: content,
       stdio: ['pipe', 'inherit', 'inherit'],
     });
@@ -123,4 +123,9 @@ function main() {
   console.log('\nGitHub release creation complete!');
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}
