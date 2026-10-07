@@ -109,6 +109,19 @@ mvn spotless:apply
 
 ## Code Standards
 
+### CI Tool Versions
+
+Use explicit hosted runner images and exact stable action and Bun versions in
+workflows. Actionlint also requires an image digest. Workflow policy tests reject
+runner aliases and mutable tool pins. The dependency freshness check runs on PRs,
+pushes to `main`, manual dispatches, and weekly; it checks action releases, the
+Bun runtime, and the Actionlint version and Docker image digest.
+
+```bash
+node --test scripts/*.test.mjs experiments/*.test.mjs
+GH_TOKEN="$(gh auth token)" node scripts/check-ci-dependencies.mjs
+```
+
 ### Style Guidelines
 
 - **Google Java Style**: All code must conform to [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)
@@ -281,6 +294,15 @@ Releases are automated through GitHub Actions using the changeset workflow.
    - Creates a GitHub release
    - Uploads JAR artifacts
    - Downloads the published JARs and compares them byte-for-byte with the build
+
+When no changesets remain, an automatic release or a manual changeset release
+checks the GitHub release for the current POM version. If `gh release view`
+reports `release not found` and that version's tag exists, it rebuilds from the
+tag and creates the missing release without bumping or committing a version.
+Authentication, network, and other lookup failures warn and skip recovery;
+set `RELEASE_DEBUG=1` to show the lookup error in protected logs. Existing
+releases are left alone. Recovery runs for the current version, so maintainers
+must backfill older missing versions manually.
 
 The provided release workflow distributes JARs through GitHub Releases; it does
 not deploy to Maven Central. Projects that add Central publishing must configure
