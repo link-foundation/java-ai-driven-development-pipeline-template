@@ -45,8 +45,8 @@ function fixture(t, { status = 1, stderr = 'release not found\n', tagged = true 
     GH_TEST_STATUS: String(status),
     GH_TEST_STDERR: stderr,
   };
-  const run = (script, args = []) => spawnSync(process.execPath, [join(root, 'scripts', script), ...args], {
-    cwd, env, encoding: 'utf8', timeout: 10000,
+  const run = (script, args = [], overrides = {}) => spawnSync(process.execPath, [join(root, 'scripts', script), ...args], {
+    cwd, env: { ...env, ...overrides }, encoding: 'utf8', timeout: 10000,
   });
   const calls = () => existsSync(env.GH_TEST_LOG)
     ? readFileSync(env.GH_TEST_LOG, 'utf8').trim().split('\n').map(JSON.parse) : [];
@@ -98,6 +98,35 @@ test('an existing release is left alone', { timeout: 15000 }, t => {
   const result = f.run('create-github-release.mjs', ['--release-version', '1.2.3', '--repository', 'example/repository']);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(f.calls().filter(call => call.args[1] === 'create').length, 0);
+});
+
+test('recovery uses the project version rather than a parent or commented version', { timeout: 15000 }, t => {
+  const f = fixture(t);
+  writeFileSync(join(f.cwd, 'pom.xml'), '<project><!-- <version>9.9.9</version> --><parent><version>2.0.0</version></parent><version>1.2.3</version></project>');
+  const result = f.run('version-and-commit.mjs', ['--mode', 'changeset']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.outputs().new_version, '1.2.3');
+  assert.equal(f.outputs().released, 'true');
+});
+
+test('an unavailable gh executable is unknown rather than missing', { timeout: 15000 }, t => {
+  const f = fixture(t);
+  const result = f.run('version-and-commit.mjs', ['--mode', 'changeset'], { PATH: join(f.cwd, 'no-executables') });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.outputs().released, 'false');
+  assert.match(result.stderr, /::warning::/);
+});
+
+test('lookup debug logs are off by default and protect workflow commands when enabled', { timeout: 15000 }, t => {
+  const payload = '::error::untrusted upstream error';
+  const f = fixture(t, { status: 1, stderr: payload });
+  const normal = f.run('version-and-commit.mjs', ['--mode', 'changeset'], { RELEASE_DEBUG: '0' });
+  assert.equal(normal.status, 0, normal.stderr);
+  assert.ok(!normal.stdout.includes(payload));
+  assert.ok(!normal.stderr.includes(payload));
+  const debug = f.run('version-and-commit.mjs', ['--mode', 'changeset'], { RELEASE_DEBUG: '1', GITHUB_ACTIONS: 'true' });
+  assert.equal(debug.status, 0, debug.stderr);
+  assert.match(debug.stdout, /::stop-commands::([a-f0-9]{32})\n::error::untrusted upstream error\n::\1::/);
 });
 
 for (const fail of [false, true]) {

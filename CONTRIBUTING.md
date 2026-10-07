@@ -109,6 +109,19 @@ mvn spotless:apply
 
 ## Code Standards
 
+### CI Tool Versions
+
+Use explicit hosted runner images and exact stable action and Bun versions in
+workflows. Actionlint also requires an image digest. Workflow policy tests reject
+runner aliases and mutable tool pins. The dependency freshness check runs on PRs,
+pushes to `main`, manual dispatches, and weekly; it checks action releases, the
+Bun runtime, and the Actionlint version and Docker image digest.
+
+```bash
+node --test scripts/*.test.mjs experiments/*.test.mjs
+GH_TOKEN="$(gh auth token)" node scripts/check-ci-dependencies.mjs
+```
+
 ### Style Guidelines
 
 - **Google Java Style**: All code must conform to [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)

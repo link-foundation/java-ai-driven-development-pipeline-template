@@ -40,7 +40,7 @@ jobs:
   # =============================================================================
   detect-changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'workflow_dispatch'
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
@@ -54,14 +54,14 @@ jobs:
       any-code-changed: ${{ steps.changes.outputs.any-code-changed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Detect changes
         id: changes
@@ -78,7 +78,7 @@ jobs:
   # =============================================================================
   lint:
     name: Lint & Format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [detect-changes]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-lint
@@ -93,19 +93,19 @@ jobs:
       needs.detect-changes.outputs.workflow-changed == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Check code formatting (Spotless)
         run: mvn spotless:check -B
@@ -116,11 +116,11 @@ jobs:
       - name: Check file sizes
         run: bun scripts/check-file-size.mjs
 
-      - name: Run CI security regression tests
+      - name: Run CI regression tests
         run: node --test scripts/*.test.mjs experiments/*.test.mjs
 
       - name: Lint GitHub Actions workflows
-        uses: docker://rhysd/actionlint:1.7.12
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
         with:
           # GitHub supports concurrency.queue, pending actionlint support:
           # https://github.com/rhysd/actionlint/pull/661
@@ -143,14 +143,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-26, windows-2025]
         java: ['21']
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ matrix.java }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -160,8 +160,8 @@ jobs:
         run: mvn test jacoco:report -B
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.java == '21' && env.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v7
+        if: matrix.os == 'ubuntu-24.04' && matrix.java == '21' && env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ env.CODECOV_TOKEN }}
           files: target/site/jacoco/jacoco.xml
@@ -170,7 +170,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Note that coverage was not uploaded
-        if: matrix.os == 'ubuntu-latest' && matrix.java == '21' && env.CODECOV_TOKEN == ''
+        if: matrix.os == 'ubuntu-24.04' && matrix.java == '21' && env.CODECOV_TOKEN == ''
         run: echo "::notice::CODECOV_TOKEN is not configured, so coverage was not uploaded"
 
   # =============================================================================
@@ -178,7 +178,7 @@ jobs:
   # =============================================================================
   build:
     name: Build Package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, test]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-build
@@ -187,10 +187,10 @@ jobs:
     if: ${{ !cancelled() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.test.result == 'success' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -206,7 +206,7 @@ jobs:
           echo "..."
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: build-artifacts
           path: |
@@ -220,7 +220,7 @@ jobs:
   # =============================================================================
   changeset-check:
     name: Changeset Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [detect-changes]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
@@ -228,14 +228,14 @@ jobs:
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Validate changeset
         run: bun scripts/validate-changeset.mjs
@@ -247,7 +247,7 @@ jobs:
   # =============================================================================
   auto-release:
     name: Auto Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     concurrency:
@@ -258,22 +258,22 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Check for changesets
         id: changesets
@@ -353,7 +353,7 @@ jobs:
   # =============================================================================
   manual-release-changeset:
     name: Manual Release (Changeset)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset'
     concurrency:
@@ -364,22 +364,22 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Merge changesets (if multiple)
         run: bun scripts/merge-changesets.mjs
@@ -445,7 +445,7 @@ jobs:
   # =============================================================================
   manual-release-instant:
     name: Manual Release (Instant)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
     concurrency:
@@ -456,22 +456,22 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.0.1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Run version and commit script
         id: release
@@ -522,7 +522,7 @@ jobs:
   # =============================================================================
   changeset-pr:
     name: Create Changeset PR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
     concurrency:
       group: main-writer-${{ github.repository }}-main
@@ -533,14 +533,14 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: latest
+          bun-version: '1.4.2'
 
       - name: Create changeset file
         env:
@@ -556,7 +556,7 @@ jobs:
             --description "$DESCRIPTION"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: add changeset for ${{ inputs.bump_type }} release"

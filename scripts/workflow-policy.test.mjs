@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
 const workflowPath = resolve(import.meta.dirname, '..', '.github', 'workflows', 'release.yml');
 const workflow = readFileSync(workflowPath, 'utf8');
+const workflowDirectory = resolve(import.meta.dirname, '..', '.github', 'workflows');
+const workflows = readdirSync(workflowDirectory)
+  .filter(name => /\.ya?ml$/.test(name))
+  .map(name => readFileSync(resolve(workflowDirectory, name), 'utf8'));
 
 function runBlocks(yaml) {
   const lines = yaml.split('\n');
@@ -63,4 +67,37 @@ test('every release path verifies uploaded artifacts', () => {
 
 test('GitHub output-file redirections are quoted', () => {
   assert.doesNotMatch(workflow, />>\s+\$GITHUB_OUTPUT/);
+});
+
+test('changeset release jobs run the version script even with no changesets', () => {
+  const autoRelease = workflow.split('\n  auto-release:\n')[1].split('\n  manual-release-changeset:\n')[0];
+  assert.doesNotMatch(autoRelease, /if: steps\.changesets\.outputs\.has_changesets == 'true'\s+id: release/);
+  assert.match(autoRelease, /id: release\s+run: bun scripts\/version-and-commit\.mjs --mode changeset/);
+});
+
+test('recovery builds artifacts from the original release tag', () => {
+  const changesetJobs = workflow.split('\n  auto-release:\n')[1].split('\n  manual-release-instant:\n')[0];
+  assert.equal((changesetJobs.match(/steps\.release\.outputs\.skip_bump/g) || []).length, 2);
+  assert.equal((changesetJobs.match(/git worktree add --detach/g) || []).length, 2);
+});
+
+test('all hosted runner images are explicit, including matrix entries', () => {
+  for (const yaml of workflows) {
+    assert.doesNotMatch(yaml, /^\s*(?:runs-on:|os:|-)\s+.*\b(?:ubuntu|windows|macos)-latest\b/m);
+  }
+});
+
+test('Bun and Actionlint use explicit versions and the Actionlint image has a digest', () => {
+  for (const yaml of workflows) {
+    for (const [, version] of yaml.matchAll(/bun-version:\s*['"]?([^\s'"#]+)/g)) {
+      assert.match(version, /^\d+\.\d+\.\d+$/);
+    }
+    for (const [, image] of yaml.matchAll(/uses:\s*(docker:\/\/rhysd\/actionlint[^\s]+)/g)) {
+      assert.match(image, /^docker:\/\/rhysd\/actionlint:\d+\.\d+\.\d+@sha256:[a-f0-9]{64}$/);
+    }
+  }
+});
+
+test('dependency freshness runs in CI and on a schedule', () => {
+  assert.ok(workflows.some(yaml => /schedule:/.test(yaml) && /node scripts\/check-ci-dependencies\.mjs/.test(yaml)));
 });
