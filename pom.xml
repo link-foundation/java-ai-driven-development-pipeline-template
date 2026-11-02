@@ -51,6 +51,8 @@
         <maven-source.version>3.3.0</maven-source.version>
         <maven-javadoc.version>3.6.3</maven-javadoc.version>
         <maven-enforcer.version>3.4.1</maven-enforcer.version>
+        <maven-gpg.version>3.1.0</maven-gpg.version>
+        <google-java-format.version>1.19.2</google-java-format.version>
     </properties>
 
     <dependencies>
@@ -155,7 +157,7 @@
                 <configuration>
                     <java>
                         <googleJavaFormat>
-                            <version>1.19.2</version>
+                            <version>${google-java-format.version}</version>
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                         <removeUnusedImports/>
@@ -273,7 +275,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.1.0</version>
+                        <version>${maven-gpg.version}</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>

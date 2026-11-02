@@ -1,0 +1,76 @@
+name: Security
+
+# Dependency audit (issue #15). Code scanning does not audit dependencies, and an
+# advisory can be published against a version that has not changed, so the audit
+# also runs weekly on main. Every severity fails: a vulnerable dependency or build
+# plugin is something a maintainer must act on. Dependabot (.github/dependabot.yml)
+# proposes the version bumps.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Audit Maven dependencies and plugins (OSV)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-audit
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install OSV-Scanner
+        env:
+          # scripts/check-ci-dependencies.mjs keeps this version current and
+          # checks the checksum against the release asset digest.
+          OSV_SCANNER_VERSION: v2.7.0
+          OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/osv-scanner"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/osv-scanner/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner/osv-scanner" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/osv-scanner/osv-scanner"
+          echo "$RUNNER_TEMP/osv-scanner" >> "$GITHUB_PATH"
+
+      - name: Audit pom.xml dependency tree (all severities)
+        # OSV-Scanner resolves transitive Maven dependencies from pom.xml itself.
+        run: osv-scanner scan source -L pom.xml
+
+      - name: Audit Maven build plugins (all severities)
+        # OSV-Scanner does not read <build><plugins>; query OSV for them directly.
+        run: |
+          node --test experiments/maven-plugin-audit.test.mjs
+          node scripts/audit-maven-plugins.mjs pom.xml
+
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: low
