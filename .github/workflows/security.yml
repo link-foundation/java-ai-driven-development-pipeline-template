@@ -4,7 +4,9 @@ name: Security
 # advisory can be published against a version that has not changed, so the audit
 # also runs weekly on main. Every severity fails: a vulnerable dependency or build
 # plugin is something a maintainer must act on. Dependabot (.github/dependabot.yml)
-# proposes the version bumps.
+# proposes the version bumps. The audit does not depend on GitHub's dependency
+# graph, which is disabled in this repository (actions/dependency-review-action
+# needs it).
 on:
   push:
     branches: [main]
@@ -56,21 +58,3 @@ jobs:
           node --test experiments/maven-plugin-audit.test.mjs
           node scripts/audit-maven-plugins.mjs pom.xml
 
-  dependency-review:
-    name: Dependency Review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
-      cancel-in-progress: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v5.0.0
-        with:
-          fail-on-severity: low
