@@ -101,3 +101,58 @@ test('Bun and Actionlint use explicit versions and the Actionlint image has a di
 test('dependency freshness runs in CI and on a schedule', () => {
   assert.ok(workflows.some(yaml => /schedule:/.test(yaml) && /node scripts\/check-ci-dependencies\.mjs/.test(yaml)));
 });
+
+function readRepositoryFile(...parts) {
+  return readFileSync(resolve(import.meta.dirname, '..', ...parts), 'utf8');
+}
+
+test('outdated CI pins fail pull requests but only warn on push and schedule', () => {
+  const checker = readRepositoryFile('scripts', 'check-ci-dependencies.mjs');
+  assert.match(checker, /eventName === 'pull_request'/);
+  assert.match(checker, /GITHUB_STEP_SUMMARY/);
+});
+
+test('Dependabot proposes Maven and GitHub Actions updates weekly with a cooldown', () => {
+  const dependabot = readRepositoryFile('.github', 'dependabot.yml');
+  for (const ecosystem of ['maven', 'github-actions']) {
+    const entry = dependabot.split(/\n  - package-ecosystem: /).find(block => block.startsWith(`${ecosystem}\n`));
+    assert.ok(entry, `${ecosystem} is configured`);
+    assert.match(entry, /directory: \/\n/);
+    assert.match(entry, /interval: weekly/);
+    assert.match(entry, /default-days: 7/);
+  }
+});
+
+test('plugin versions stay in properties and requireMavenVersion stays a range', () => {
+  const pom = readRepositoryFile('pom.xml');
+  const plugins = [...pom.matchAll(/<plugin>([\s\S]*?)<\/plugin>/g)].map(match => match[1].replace(/<configuration>[\s\S]*?<\/configuration>/g, ''));
+  for (const plugin of plugins) assert.match(plugin, /<version>\$\{[\w.-]+\.version\}<\/version>/);
+  assert.match(pom, /<requireMavenVersion>\s*<version>\[3\.8\.0,\)<\/version>/);
+});
+
+test('the security workflow audits Maven dependencies and plugins on PRs, main, and a schedule', () => {
+  const security = readRepositoryFile('.github', 'workflows', 'security.yml');
+  for (const trigger of ['pull_request:', 'push:', 'schedule:', 'workflow_dispatch:']) assert.match(security, new RegExp(`^  ${trigger}`, 'm'));
+  assert.match(security, /^permissions:\n  contents: read/m);
+  assert.match(security, /OSV_SCANNER_VERSION: v\d+\.\d+\.\d+\n/);
+  assert.match(security, /OSV_SCANNER_SHA256: [a-f0-9]{64}\n/);
+  assert.match(security, /sha256sum --check --strict/);
+  assert.match(security, /osv-scanner scan source -L pom\.xml/);
+  assert.match(security, /node scripts\/audit-maven-plugins\.mjs pom\.xml/);
+  assert.match(security, /persist-credentials: false/);
+});
+
+test('runner-acquisition failures are re-run for every CI workflow, with least privilege', () => {
+  const rerun = readRepositoryFile('.github', 'workflows', 'rerun-unacquired.yml');
+  const watched = JSON.parse(`[${rerun.match(/workflows: \[(.*)\]/)[1].replace(/'/g, '"')}]`);
+  const names = readdirSync(workflowDirectory)
+    .filter(name => /\.ya?ml$/.test(name) && name !== 'rerun-unacquired.yml')
+    .map(name => readFileSync(resolve(workflowDirectory, name), 'utf8').match(/^name: (.+)$/m)[1]);
+  assert.deepEqual([...watched].sort(), [...names].sort());
+  assert.match(rerun, /^permissions:\n  contents: read\n/m);
+  assert.match(rerun, /actions: write/);
+  assert.match(rerun, /head_repository\.full_name == github\.repository/);
+  assert.match(rerun, /persist-credentials: false/);
+  assert.match(rerun, /run: node scripts\/rerun-unacquired\.mjs/);
+  assert.doesNotMatch(rerun, /\$\{\{ github\.event\.workflow_run\.(?:head_branch|display_title|head_commit)/);
+});

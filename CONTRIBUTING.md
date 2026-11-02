@@ -115,11 +115,20 @@ Use explicit hosted runner images and exact stable action and Bun versions in
 workflows. Actionlint also requires an image digest. Workflow policy tests reject
 runner aliases and mutable tool pins. The dependency freshness check runs on PRs,
 pushes to `main`, manual dispatches, and weekly; it checks action releases, the
-Bun runtime, and the Actionlint version and Docker image digest.
+Bun runtime, the Actionlint version and Docker image digest, and downloaded tools
+such as OSV-Scanner (`OSV_SCANNER_VERSION` plus `OSV_SCANNER_SHA256`, compared with
+the release asset digest). An outdated pin fails only pull requests; on other
+events it is reported as a warning and in the step summary, and Dependabot proposes
+action bumps. Mismatched digests or checksums and lookup errors always fail.
+
+Keep every Maven plugin version in a `pom.xml` property and keep
+`requireMavenVersion` a range, so Dependabot can bump plugins safely.
 
 ```bash
 node --test scripts/*.test.mjs experiments/*.test.mjs
-GH_TOKEN="$(gh auth token)" node scripts/check-ci-dependencies.mjs
+GH_TOKEN="$(gh auth token)" GITHUB_EVENT_NAME=pull_request node scripts/check-ci-dependencies.mjs
+node scripts/audit-maven-plugins.mjs pom.xml
+osv-scanner scan source -L pom.xml
 ```
 
 ### Style Guidelines
