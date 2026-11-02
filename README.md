@@ -59,17 +59,24 @@ pre-commit install
 │   ├── config.json
 │   └── README.md
 ├── .github/
+│   ├── dependabot.yml            # Weekly Maven and GitHub Actions updates
 │   └── workflows/
-│       └── release.yml           # CI/CD pipeline
+│       ├── release.yml           # CI/CD pipeline
+│       ├── security.yml          # OSV audit of Maven dependencies and plugins
+│       ├── workflows.yml         # Workflow policy and CI dependency freshness
+│       └── rerun-unacquired.yml  # Re-runs jobs that never got a hosted runner
 ├── examples/
 │   └── BasicUsage.java           # Usage examples
 ├── scripts/                      # CI/CD scripts (Node.js/Bun)
+│   ├── audit-maven-plugins.mjs
 │   ├── bump-version.mjs
+│   ├── check-ci-dependencies.mjs
 │   ├── check-file-size.mjs
 │   ├── collect-changelog.mjs
 │   ├── create-github-release.mjs
 │   ├── create-manual-changeset.mjs
 │   ├── merge-changesets.mjs
+│   ├── rerun-unacquired.mjs
 │   ├── validate-changeset.mjs
 │   └── version-and-commit.mjs
 ├── src/
@@ -168,6 +175,33 @@ Description of the changes made.
 | Pull Request    | Lint, format check, tests, changeset validation |
 | Push to main    | All checks + auto-release if changesets present |
 | Manual dispatch | Changeset, instant, or changeset-pr mode        |
+| Weekly schedule | Dependency audit and CI dependency freshness    |
+
+### Dependency Updates and Audits
+
+- **Dependabot** (`.github/dependabot.yml`) proposes weekly pull requests for
+  `pom.xml` dependencies and plugins (`maven`) and for workflow actions
+  (`github-actions`), skipping releases younger than seven days.
+- **Security** (`security.yml`) audits the resolved `pom.xml` dependency tree
+  with a checksum-verified [OSV-Scanner](https://github.com/google/osv-scanner)
+  and the build plugins with `scripts/audit-maven-plugins.mjs`, on pull
+  requests, pushes to `main`, and weekly. Any advisory, at any severity, fails.
+  Pull requests also run GitHub's dependency review.
+- **Workflow Policy** (`workflows.yml`) checks pinned actions and tools against
+  their latest stable releases. A newer upstream release fails pull requests
+  only; on pushes to `main`, schedules, and manual runs it is a warning with a
+  step summary, because it is not caused by the commit being tested. Mismatched
+  digests or checksums and lookup errors fail on every event.
+
+### Hosted Runner Capacity
+
+When GitHub cannot assign a hosted runner (most often macOS arm64), the job is
+cancelled with "The job was not acquired by Runner of type hosted" before any
+step runs, which skips the build and release gates. `rerun-unacquired.yml`
+detects exactly those jobs (no runner, no steps, that annotation) and re-runs
+the failed jobs up to twice; jobs that ran and failed are never re-run. After
+the third attempt it fails with a "Hosted runner not acquired" error and the
+`gh run rerun <run-id> --failed` command to run once capacity returns.
 
 ### Test Matrix
 
