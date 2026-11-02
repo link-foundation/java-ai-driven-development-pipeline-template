@@ -1,0 +1,51 @@
+name: Rerun Unacquired Jobs
+
+# Re-runs a run whose failure is a job that no hosted runner ever picked up
+# (issue #16), using scripts/rerun-unacquired.mjs. A macOS leg that waits for
+# capacity and is then cancelled with "The job was not acquired by Runner of type
+# hosted even after multiple attempts" ran no code, yet it skips the build and
+# release gates. Jobs that ran steps and failed are never re-run; at most two
+# re-runs happen (attempts 2 and 3), then the job fails with the manual command.
+#
+# workflow_run is safe here: this workflow checks out only the default branch,
+# runs nothing from the triggering run, reads that run through the API, and can
+# only ask GitHub to re-run it. Runs from forks are ignored.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: ['CI/CD Pipeline', 'Security', 'Workflow Policy']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    name: Rerun jobs that never got a runner
+    if: >-
+      (github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'cancelled') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: rerun-unacquired-${{ github.event.workflow_run.id }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # `gh run rerun --failed` needs actions: write; annotations need checks: read.
+      actions: write
+      checks: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rerun jobs that no hosted runner acquired
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_VERBOSE: ${{ vars.CI_VERBOSE || 'false' }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: node scripts/rerun-unacquired.mjs
