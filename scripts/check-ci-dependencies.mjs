@@ -1,11 +1,26 @@
 #!/usr/bin/env node
-/** Check workflow action refs and separately downloaded CI tools against stable releases. */
+/**
+ * Check workflow action refs and separately downloaded CI tools against stable releases.
+ *
+ * A newer upstream release is external state, not something the checked commit caused
+ * (CI/CD best practices, principle 17). Outdated pins therefore fail only pull requests,
+ * where a contributor can act; on push, schedule, and manual runs they are reported as
+ * warnings plus a step summary, and Dependabot (.github/dependabot.yml) proposes the bump.
+ * Mutable pins, checksum or digest mismatches, and lookup errors fail on every event.
+ */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const stableVersion = /^v?\d+\.\d+\.\d+$/;
+const OUTDATED = 'outdated';
+const BROKEN = 'broken';
+
+/** Release binaries that workflows download themselves: `<PREFIX>_VERSION` plus `<PREFIX>_SHA256`. */
+export const downloadedTools = [
+  { prefix: 'OSV_SCANNER', repo: 'google/osv-scanner', asset: 'osv-scanner_linux_amd64' },
+];
 
 export function collectDependencies(directory) {
   const dependencies = [];
@@ -34,6 +49,21 @@ export function collectDependencies(directory) {
       bunVersions++;
     }
     if (bunActions !== bunVersions) throw new Error(`${name}: every setup-bun action must pin bun-version`);
+    for (const tool of downloadedTools) {
+      const versions = [...yaml.matchAll(new RegExp(`^[ \\t]*${tool.prefix}_VERSION:[ \\t]*['"]?([^\\s'"#]+)`, 'gm'))];
+      const checksums = [...yaml.matchAll(new RegExp(`^[ \\t]*${tool.prefix}_SHA256:[ \\t]*['"]?([^\\s'"#]+)`, 'gm'))];
+      if (versions.length !== checksums.length) {
+        throw new Error(`${name}: every ${tool.prefix}_VERSION needs a ${tool.prefix}_SHA256 checksum`);
+      }
+      versions.forEach(([, version], index) => {
+        const sha256 = checksums[index][1];
+        if (!stableVersion.test(version) || !version.startsWith('v')) {
+          throw new Error(`${name}: pin ${tool.prefix}_VERSION to an exact stable version`);
+        }
+        if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error(`${name}: ${tool.prefix}_SHA256 must be a sha256 hex digest`);
+        dependencies.push({ path, repo: tool.repo, version, asset: tool.asset, sha256 });
+      });
+    }
   }
   return dependencies;
 }
@@ -57,36 +87,92 @@ async function actionlintDigest(version) {
   return data.digest;
 }
 
-/** Cache upstream lookups; stale versions, mismatched digests, and registry errors fail CI. */
-export async function checkDependencies(dependencies, latest = latestRelease, digest = actionlintDigest) {
+function releaseAssetDigest(repo, version, asset) {
+  const release = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/releases/tags/${version}`], { encoding: 'utf8' }));
+  const digest = release.assets?.find(candidate => candidate.name === asset)?.digest;
+  if (!/^sha256:[a-f0-9]{64}$/.test(digest || '')) throw new Error(`${repo} ${version}: release asset ${asset} has no sha256 digest`);
+  return digest.slice('sha256:'.length);
+}
+
+/**
+ * Cache upstream lookups and classify each problem. `outdated` means a newer stable release
+ * exists; `broken` means a pinned digest or checksum does not match upstream. Lookup errors throw.
+ */
+export async function findProblems(dependencies, latest = latestRelease, digest = actionlintDigest, assetDigest = releaseAssetDigest) {
   const releases = new Map();
   const digests = new Map();
-  const errors = [];
+  const problems = [];
   for (const dependency of dependencies) {
     const { path, repo, version } = dependency;
     if (!releases.has(repo)) releases.set(repo, await latest(repo));
     const current = releases.get(repo);
     if (version !== current) {
-      errors.push(`${path}: ${repo} ${version} is outdated; latest stable is ${current}`);
+      problems.push({ kind: OUTDATED, message: `${path}: ${repo} ${version} is outdated; latest stable is ${current}` });
     }
     if (dependency.digest) {
       if (!digests.has(version)) digests.set(version, await digest(version));
       if (dependency.digest !== digests.get(version)) {
-        errors.push(`${path}: Actionlint ${version} image digest does not match Docker Hub`);
+        problems.push({ kind: BROKEN, message: `${path}: Actionlint ${version} image digest does not match Docker Hub` });
+      }
+    }
+    if (dependency.sha256) {
+      const key = `${repo}@${version}/${dependency.asset}`;
+      if (!digests.has(key)) digests.set(key, await assetDigest(repo, version, dependency.asset));
+      if (dependency.sha256 !== digests.get(key)) {
+        problems.push({ kind: BROKEN, message: `${path}: ${repo} ${version} ${dependency.asset} sha256 does not match the release asset` });
       }
     }
   }
-  return errors;
+  return problems;
+}
+
+/** Backwards-compatible list of problem messages. */
+export async function checkDependencies(...args) {
+  return (await findProblems(...args)).map(problem => problem.message);
+}
+
+function escapeCommandData(value) {
+  return value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
+/**
+ * Turn problems into an exit code, workflow-command lines, and a step summary.
+ * Outdated pins fail only `pull_request`; broken pins fail on every event.
+ */
+export function report(problems, count, eventName) {
+  const gate = eventName === 'pull_request';
+  const outdated = problems.filter(problem => problem.kind === OUTDATED);
+  const broken = problems.filter(problem => problem.kind !== OUTDATED);
+  const lines = [];
+  for (const { message } of broken) lines.push(`::error title=CI dependency pin mismatch::${escapeCommandData(message)}`);
+  for (const { message } of outdated) {
+    lines.push(`::${gate ? 'error' : 'warning'} title=Outdated CI dependency::${escapeCommandData(message)}`);
+  }
+  if (!problems.length) lines.push(`All ${count} CI dependency declarations match their latest stable releases.`);
+  else if (outdated.length && !gate) {
+    lines.push(`${outdated.length} outdated CI dependency pin(s) reported as warnings because event "${eventName || 'local'}" is not a pull request; Dependabot or a pull request bumps them.`);
+  }
+  const summary = ['## CI dependency freshness', ''];
+  if (!problems.length) summary.push(`All ${count} CI dependency declarations match their latest stable releases.`);
+  for (const { message } of broken) summary.push(`- :x: ${message}`);
+  for (const { message } of outdated) summary.push(`- ${gate ? ':x:' : ':warning:'} ${message}`);
+  if (outdated.length && !gate) {
+    summary.push('', 'A newer upstream release is external state, so it is a warning outside pull requests. Bump the pins in a pull request (Dependabot proposes action bumps).');
+  }
+  const exitCode = broken.length || (gate && outdated.length) ? 1 : 0;
+  return { exitCode, lines, summary: `${summary.join('\n')}\n` };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    const dependencies = collectDependencies(resolve(import.meta.dirname, '..', '.github', 'workflows'));
-    const errors = await checkDependencies(dependencies);
-    if (errors.length) throw new Error(errors.join('\n'));
-    console.log(`All ${dependencies.length} CI dependency declarations match their latest stable releases.`);
+    const directory = process.env.CI_DEPENDENCIES_WORKFLOW_DIRECTORY || resolve(import.meta.dirname, '..', '.github', 'workflows');
+    const dependencies = collectDependencies(directory);
+    const result = report(await findProblems(dependencies), dependencies.length, process.env.GITHUB_EVENT_NAME);
+    for (const line of result.lines) console.log(line);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, result.summary);
+    process.exitCode = result.exitCode;
   } catch (error) {
-    console.error(error.message);
+    console.error(`::error title=CI dependency check failed::${escapeCommandData(error.message)}`);
     process.exitCode = 1;
   }
 }
