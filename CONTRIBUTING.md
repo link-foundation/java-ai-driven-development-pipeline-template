@@ -112,14 +112,18 @@ mvn spotless:apply
 ### CI Tool Versions
 
 Use explicit hosted runner images and exact stable action and Bun versions in
-workflows. Actionlint also requires an image digest. Workflow policy tests reject
-runner aliases and mutable tool pins. The dependency freshness check runs on PRs,
+workflows. Actions may also use a full 40-character commit SHA with a trailing
+`# vX.Y.Z` comment; the checker verifies that the tag resolves to that commit.
+Actionlint also requires an image digest. Workflow policy tests reject runner
+aliases and mutable tool pins. The dependency freshness check runs on PRs,
 pushes to `main`, manual dispatches, and weekly; it checks action releases, the
 Bun runtime, the Actionlint version and Docker image digest, and downloaded tools
 such as OSV-Scanner (`OSV_SCANNER_VERSION` plus `OSV_SCANNER_SHA256`, compared with
-the release asset digest). An outdated pin fails only pull requests; on other
-events it is reported as a warning and in the step summary, and Dependabot proposes
-action bumps. Mismatched digests or checksums and lookup errors always fail.
+the release asset digest). An outdated pin is reported as a warning and in the step
+summary on every event, including pull requests, so upstream releases do not block
+unrelated changes during
+Dependabot's seven-day cooldown. Dependabot proposes action bumps. Mismatched
+SHAs, digests or checksums and lookup errors always fail.
 
 Keep every Maven plugin version in a `pom.xml` property and keep
 `requireMavenVersion` a range, so Dependabot can bump plugins safely.
@@ -163,7 +167,8 @@ public static long add(long a, long b) {
 
 - Keep methods focused and under 50 lines
 - Keep classes under 500 lines
-- Keep files under 1000 lines (enforced by CI)
+- Keep Java, `.mjs`, and `.js` files at or below 1000 lines (enforced by CI);
+  the size check emits a warning from 900 lines
 - Use meaningful variable and method names
 - Avoid nested callbacks and complex control flow
 - Prefer immutability where possible
