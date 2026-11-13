@@ -1,0 +1,14 @@
+✔ collects plugins, plugin dependencies, and the Spotless formatter with resolved properties (7.520424ms)
+✔ rejects plugins without a version, undefined properties, and version ranges (1.434886ms)
+✔ the template pom.xml keeps every build plugin version explicit and auditable (1.920702ms)
+✔ reports only artifacts with advisories and sends Maven OSV queries (3.802913ms)
+✔ OSV lookup failures propagate instead of reporting no advisories (5.144274ms)
+✔ resolved Maven reports include test dependencies and plugin transitives without duplicates (2.697681ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 224.894525

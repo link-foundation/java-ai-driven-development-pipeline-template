@@ -16,9 +16,9 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ### Prerequisites
 
-- **Java 17+**: Required for building and running the project
-- **Maven 3.8+**: Build tool and dependency manager
-- **Node.js 20+ or Bun**: For running CI/CD scripts
+- **Java 27+**: Required for building and running the project
+- **Maven 3.10.0+**: Build tool and dependency manager
+- **Node.js 26.13.1+ or Bun 1.4.4**: For running CI/CD scripts
 - **Git**: Version control
 - **pre-commit** (optional): For automated pre-commit hooks
 
@@ -33,18 +33,18 @@ Thank you for your interest in contributing! This document provides guidelines a
 2. **Verify Java and Maven versions**:
 
    ```bash
-   java --version    # Should be 17+
-   mvn --version     # Should be 3.8+
+   java --version    # Should be 27.0.1+
+   ./mvnw --version     # Should be 3.10.0+
    ```
 3. **Install dependencies and build**:
 
    ```bash
-   mvn clean install
+   ./mvnw clean install
    ```
 4. **Install pre-commit hooks** (optional but recommended):
 
    ```bash
-   pip install pre-commit
+   pip install pre-commit==4.7.0
    pre-commit install
    ```
 
@@ -64,15 +64,15 @@ git checkout -b feature/your-feature-name
 
    ```bash
    # Format code
-   mvn spotless:apply
+   ./mvnw spotless:apply
 
    # Run all checks
-   mvn verify
+   ./mvnw verify
 
    # Or run individual checks
-   mvn spotless:check    # Format check
-   mvn spotbugs:check    # Static analysis
-   mvn test              # Unit tests
+   ./mvnw spotless:check    # Format check
+   ./mvnw spotbugs:check    # Static analysis
+   ./mvnw test              # Unit tests
    ```
 4. Create a changeset (see [Changesets](#changesets))
 5. Commit your changes:
@@ -86,10 +86,10 @@ git checkout -b feature/your-feature-name
 
 ```bash
 # Run all tests
-mvn test
+./mvnw test
 
 # Run tests with coverage report
-mvn test jacoco:report
+./mvnw test jacoco:report
 
 # View coverage report
 open target/site/jacoco/index.html
@@ -101,10 +101,10 @@ We use [Spotless](https://github.com/diffplug/spotless) with Google Java Format:
 
 ```bash
 # Check formatting
-mvn spotless:check
+./mvnw spotless:check
 
 # Apply formatting
-mvn spotless:apply
+./mvnw spotless:apply
 ```
 
 ## Code Standards
@@ -184,7 +184,7 @@ public static long add(long a, long b) {
 
 ### Test Structure
 
-We use JUnit 5 with nested test classes for organization:
+We use JUnit 6 with nested test classes for organization:
 
 ```java
 @DisplayName("MyPackage")
@@ -269,8 +269,8 @@ Add async delay function with CompletableFuture support for non-blocking operati
 
 ### Before Submitting
 
-1. Ensure all tests pass: `mvn verify`
-2. Format your code: `mvn spotless:apply`
+1. Ensure all tests pass: `./mvnw verify`
+2. Format your code: `./mvnw spotless:apply`
 3. Create a changeset for source changes
 4. Update documentation if needed
 

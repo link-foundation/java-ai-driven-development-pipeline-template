@@ -1,0 +1,9 @@
+::error title=Vulnerable Maven build artifact::org.codehaus.plexus:plexus-utils 4.0.2: https://osv.dev/vulnerability/GHSA-6fmv-xxpf-w3cw
+::error title=Vulnerable Maven build artifact::io.airlift:aircompressor 0.27: https://osv.dev/vulnerability/GHSA-vx9q-rhv9-3jvg
+::error title=Vulnerable Maven build artifact::commons-beanutils:commons-beanutils 1.9.4: https://osv.dev/vulnerability/GHSA-wxr5-93ph-8wr9
+::error title=Vulnerable Maven build artifact::org.iq80.snappy:snappy 0.4: https://osv.dev/vulnerability/GHSA-8wh2-6qhj-h7j9
+::error title=Vulnerable Maven build artifact::org.codehaus.plexus:plexus-utils 3.6.0: https://osv.dev/vulnerability/GHSA-6fmv-xxpf-w3cw
+::error title=Vulnerable Maven build artifact::org.bouncycastle:bcpg-jdk18on 1.81: https://osv.dev/vulnerability/GHSA-cj8j-37rh-8475
+::error title=Vulnerable Maven build artifact::org.bouncycastle:bcprov-jdk18on 1.81: https://osv.dev/vulnerability/GHSA-574f-3g2m-x479 https://osv.dev/vulnerability/GHSA-9pwp-9qqc-pr26 https://osv.dev/vulnerability/GHSA-c3fc-8qff-9hwx https://osv.dev/vulnerability/GHSA-p93r-85wp-75v3 https://osv.dev/vulnerability/GHSA-qp49-qgx5-5m26
+::error title=Vulnerable Maven build artifact::org.codehaus.plexus:plexus-utils 3.0.24: https://osv.dev/vulnerability/GHSA-6fmv-xxpf-w3cw
+8 of 212 build artifacts have OSV advisories.

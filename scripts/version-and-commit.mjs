@@ -21,6 +21,8 @@
  *   bun scripts/version-and-commit.mjs --bump-type <major|minor|patch>
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { execSync, execFileSync } from 'child_process';
@@ -40,24 +42,14 @@ const BUMP_PRIORITY = {
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let mode = 'instant';
-  let bumpType = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--mode' && args[i + 1]) {
-      mode = args[i + 1];
-      i++;
-    } else if (args[i] === '--bump-type' && args[i + 1]) {
-      bumpType = args[i + 1];
-      i++;
-    }
-  }
-
-  // Legacy mode support: if bump-type is provided without mode, use instant mode
-  if (bumpType && !args.includes('--mode')) {
-    mode = 'instant';
-  }
+  const { values } = parseCommandLine({
+    options: {
+      mode: { type: 'string', default: 'instant' },
+      'bump-type': { type: 'string' },
+    },
+  });
+  const mode = values.mode;
+  const bumpType = values['bump-type'];
 
   return { mode, bumpType };
 }

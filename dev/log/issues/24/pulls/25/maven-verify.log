@@ -1,0 +1,138 @@
+[INFO] Scanning for projects...
+[INFO] Loaded 24473 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO]
+[INFO] -------------------< com.linkfoundation:my-package >--------------------
+[INFO] Building my-package 0.2.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- spotless:3.11.0:apply (default-cli) @ my-package ---
+[INFO] Loaded 64 auto-discovered prefixes for remote repository ApacheSnapshot (prefixes-ApacheSnapshot.txt)
+[INFO] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[INFO] Spotless.Java is keeping 5 files clean - 0 were changed to be clean, 0 were already clean, 5 were skipped because caching determined they were already clean
+[INFO] Sorting file /tmp/pom17191796222025647051.xml
+[INFO] Pom file is already sorted, exiting
+[INFO] Spotless.Pom is keeping 1 files clean - 0 were changed to be clean, 1 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] clean file: /tmp/gh-issue-solver-1794605061783/dev/log/issues/24/pulls/25/TRANSITIVE-DEPENDENCIES.md
+[INFO] clean file: /tmp/gh-issue-solver-1794605061783/target/reports/apidocs/legal/dejavufonts.md
+[INFO] Spotless.Markdown is keeping 11 files clean - 2 were changed to be clean, 0 were already clean, 9 were skipped because caching determined they were already clean
+[INFO]
+[INFO] --- clean:3.5.0:clean (default-clean) @ my-package ---
+[INFO] Deleting /tmp/gh-issue-solver-1794605061783/target
+[INFO]
+[INFO] --- spotless:3.11.0:check (default) @ my-package ---
+[INFO] Index file does not exist. Fallback to an empty index
+[INFO] Spotless.Java is keeping 5 files clean - 0 needs changes to be clean, 5 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] Sorting file /tmp/pom8447771950564564136.xml
+[INFO] Pom file is already sorted, exiting
+[INFO] Spotless.Pom is keeping 1 files clean - 0 needs changes to be clean, 1 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] Spotless.Markdown is keeping 10 files clean - 0 needs changes to be clean, 10 were already clean, 0 were skipped because caching determined they were already clean
+[INFO]
+[INFO] --- enforcer:3.7.0:enforce (enforce-maven) @ my-package ---
+[INFO] Rule 0: org.apache.maven.enforcer.rules.version.RequireMavenVersion passed
+[INFO] Rule 1: org.apache.maven.enforcer.rules.version.RequireJavaVersion passed
+[INFO]
+[INFO] --- jacoco:0.8.16:prepare-agent (prepare-agent) @ my-package ---
+[INFO] argLine set to -javaagent:/home/box/.m2/repository/org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16-runtime.jar=destfile=/tmp/gh-issue-solver-1794605061783/target/jacoco.exec
+[INFO]
+[INFO] --- resources:3.5.0:resources (default-resources) @ my-package ---
+[INFO] skip non existing resourceDirectory /tmp/gh-issue-solver-1794605061783/src/main/resources
+[INFO]
+[INFO] --- compiler:3.16.0:compile (default-compile) @ my-package ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 3 source files with javac [debug release 27] to target/classes
+[INFO]
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ my-package ---
+[INFO] skip non existing resourceDirectory /tmp/gh-issue-solver-1794605061783/src/test/resources
+[INFO]
+[INFO] --- compiler:3.16.0:testCompile (default-testCompile) @ my-package ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 2 source files with javac [debug release 27] to target/test-classes
+[INFO]
+[INFO] --- surefire:3.6.1:test (default-test) @ my-package ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running MyPackage
+[INFO] Tests run: 26, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.449 s -- in MyPackage
+[INFO] Running Main
+MyPackage v0.2.0
+
+Example 1: Basic arithmetic
+  2 + 3 = 5
+  4 * 5 = 20
+
+Example 2: Larger numbers
+  1,000,000 + 2,000,000 = 3000000
+  1,000 * 1,000 = 1000000
+
+Example 3: Negative numbers
+  -5 + 3 = -2
+  -4 * 5 = -20
+
+Example 4: Async delay
+  Waiting for 100ms...
+  Waited for 103ms
+
+Done!
+MyPackage v0.2.0
+
+Example 1: Basic arithmetic
+  2 + 3 = 5
+  4 * 5 = 20
+
+Example 2: Larger numbers
+  1,000,000 + 2,000,000 = 3000000
+  1,000 * 1,000 = 1000000
+
+Example 3: Negative numbers
+  -5 + 3 = -2
+  -4 * 5 = -20
+
+Example 4: Async delay
+  Waiting for 100ms...
+  Waited for 101ms
+
+Done!
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.388 s -- in Main
+[INFO]
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO]
+[INFO] --- jacoco:0.8.16:report (report) @ my-package ---
+[INFO] Loading execution data file /tmp/gh-issue-solver-1794605061783/target/jacoco.exec
+[INFO] Analyzed bundle 'my-package' with 2 classes
+[INFO]
+[INFO] --- jar:3.5.1:jar (default-jar) @ my-package ---
+[INFO] Building jar: /tmp/gh-issue-solver-1794605061783/target/my-package-0.2.0.jar
+[INFO]
+[INFO] --- source:3.4.0:jar-no-fork (attach-sources) @ my-package ---
+[INFO] Building jar: /tmp/gh-issue-solver-1794605061783/target/my-package-0.2.0-sources.jar
+[INFO]
+[INFO] --- javadoc:3.12.0:jar (attach-javadocs) @ my-package ---
+[INFO] Building jar: /tmp/gh-issue-solver-1794605061783/target/my-package-0.2.0-javadoc.jar
+[INFO]
+[INFO] >>> spotbugs:4.10.5.0:check (default) > :spotbugs @ my-package >>>
+[INFO]
+[INFO] --- spotbugs:4.10.5.0:spotbugs (spotbugs) @ my-package ---
+[INFO] Loaded 50 auto-discovered prefixes for remote repository ow2-snapshot (prefixes-ow2-snapshot.txt)
+[INFO] Done SpotBugs Analysis....
+[INFO] Skipping com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs report goal
+[INFO]
+[INFO] <<< spotbugs:4.10.5.0:check (default) < :spotbugs @ my-package <<<
+[INFO]
+[INFO]
+[INFO] --- spotbugs:4.10.5.0:check (default) @ my-package ---
+[INFO] BugInstance size is 0
+[INFO] Error size is 0
+[INFO] No errors/warnings found
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  41.787 s
+[INFO] Finished at: 2026-11-13T21:55:25Z
+[INFO] ------------------------------------------------------------------------

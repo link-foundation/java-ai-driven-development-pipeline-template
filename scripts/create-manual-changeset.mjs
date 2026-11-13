@@ -8,6 +8,8 @@
  *   bun scripts/create-manual-changeset.mjs --bump-type <patch|minor|major> --description "Description"
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { printUntrusted } from './github-actions-log.mjs';
@@ -59,19 +61,14 @@ const NOUNS = [
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let bumpType = 'patch';
-  let description = '';
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--bump-type' && args[i + 1]) {
-      bumpType = args[i + 1];
-      i++;
-    } else if (args[i] === '--description' && args[i + 1]) {
-      description = args[i + 1];
-      i++;
-    }
-  }
+  const { values } = parseCommandLine({
+    options: {
+      'bump-type': { type: 'string', default: 'patch' },
+      description: { type: 'string', default: '' },
+    },
+  });
+  const bumpType = values['bump-type'];
+  const description = values.description;
 
   if (!['major', 'minor', 'patch'].includes(bumpType)) {
     console.error('Error: --bump-type must be one of: major, minor, patch');

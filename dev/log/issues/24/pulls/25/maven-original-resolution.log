@@ -1,0 +1,18 @@
+[INFO] Scanning for projects...
+[INFO] Loaded 24473 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO]
+[INFO] -------------------< com.linkfoundation:my-package >--------------------
+[INFO] Building my-package 0.2.0
+[INFO]   from issue24-original-pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- dependency:3.11.0:list (default-cli) @ my-package ---
+[INFO] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[INFO]
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ my-package ---
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  6.780 s
+[INFO] Finished at: 2026-11-13T21:49:52Z
+[INFO] ------------------------------------------------------------------------

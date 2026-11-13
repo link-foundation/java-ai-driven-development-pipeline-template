@@ -8,6 +8,8 @@
  *   bun scripts/create-github-release.mjs --release-version <version> --repository <owner/repo>
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
@@ -17,19 +19,14 @@ import { githubReleaseState, validateReleaseVersion } from './github-release-sta
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let releaseVersion = null;
-  let repository = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--release-version' && args[i + 1]) {
-      releaseVersion = args[i + 1];
-      i++;
-    } else if (args[i] === '--repository' && args[i + 1]) {
-      repository = args[i + 1];
-      i++;
-    }
-  }
+  const { values } = parseCommandLine({
+    options: {
+      'release-version': { type: 'string' },
+      repository: { type: 'string' },
+    },
+  });
+  const releaseVersion = values['release-version'];
+  const repository = values.repository;
 
   if (!releaseVersion) {
     console.error('Usage: create-github-release.mjs --release-version <version> --repository <owner/repo>');

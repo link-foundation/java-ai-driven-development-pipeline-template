@@ -1,0 +1,54 @@
+trim trailing whitespace.................................................Failed
+- hook id: trailing-whitespace
+- exit code: 1
+- files were modified by this hook
+
+Fixing dev/log/issues/24/pulls/25/maven-transitive-migration.log
+Fixing dev/log/issues/24/pulls/25/maven-transitive-migration-2.log
+Fixing dev/log/issues/24/pulls/25/maven-transitive-migration-5.log
+Fixing dev/log/issues/24/pulls/25/maven-resolution-updated.log
+Fixing dev/log/issues/24/pulls/25/spotless-apply.log
+Fixing dev/log/issues/24/pulls/25/maven-transitive-migration-4.log
+Fixing dev/log/issues/24/pulls/25/maven-transitive-migration-3.log
+Fixing dev/log/issues/24/pulls/25/maven-wrapper-generation.log
+Fixing dev/log/issues/24/pulls/25/sources/merged-pr-23.diff
+Fixing dev/log/issues/24/pulls/25/format-final.log
+Fixing dev/log/issues/24/pulls/25/maven-verify.log
+Fixing dev/log/issues/24/pulls/25/sources/json-simple-changelog.txt
+Fixing dev/log/issues/24/pulls/25/maven-original-resolution.log
+Fixing dev/log/issues/24/pulls/25/maven-resolution.log
+
+fix end of files.........................................................Failed
+- hook id: end-of-file-fixer
+- exit code: 1
+- files were modified by this hook
+
+Fixing dev/log/issues/24/pulls/25/sources/pr-inline-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/final-sub-issues.json
+Fixing dev/log/issues/24/pulls/25/sources/issue-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/final-issue-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/final-pr-inline-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/pr-conversation-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/resolved-artifacts-final.txt
+Fixing dev/log/issues/24/pulls/25/sources/dependency-update-practices.md
+Fixing dev/log/issues/24/pulls/25/sources/java27.json
+Fixing dev/log/issues/24/pulls/25/sources/resolved-artifacts-original-main.txt
+Fixing dev/log/issues/24/pulls/25/sources/durian-swt-changelog.md
+Fixing dev/log/issues/24/pulls/25/sources/resolved-artifacts-original-active.txt
+Fixing dev/log/issues/24/pulls/25/sources/pr-reviews.json
+Fixing dev/log/issues/24/pulls/25/sources/final-pr-conversation-comments.json
+Fixing dev/log/issues/24/pulls/25/sources/adoptium.json
+Fixing dev/log/issues/24/pulls/25/sources/sub-issues.json
+Fixing dev/log/issues/24/pulls/25/sources/final-pr-reviews.json
+Fixing dev/log/issues/24/pulls/25/sources/resolved-artifacts-before-overrides.txt
+Fixing dev/log/issues/24/pulls/25/sources/junit6-migration.md
+
+check yaml...............................................................Passed
+check xml................................................................Passed
+check for added large files..............................................Passed
+check for merge conflicts................................................Passed
+check for case conflicts.................................................Passed
+detect private key.......................................................Passed
+Spotless Format Check....................................................Passed
+Maven Compile............................................................Passed
+File Size Check..........................................................Passed

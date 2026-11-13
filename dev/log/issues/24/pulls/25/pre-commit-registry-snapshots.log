@@ -1,0 +1,11 @@
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Passed
+check yaml...........................................(no files to check)Skipped
+check xml............................................(no files to check)Skipped
+check for added large files..............................................Passed
+check for merge conflicts................................................Passed
+check for case conflicts.................................................Passed
+detect private key.......................................................Passed
+Spotless Format Check................................(no files to check)Skipped
+Maven Compile........................................(no files to check)Skipped
+File Size Check......................................(no files to check)Skipped

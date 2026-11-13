@@ -1,0 +1,6 @@
+# Ubuntu 26.04 is GA in actions/runner-images, but Actionlint 1.7.12's
+# built-in hosted label list predates it. Extend the list without disabling
+# validation of other runner labels. Remove when Actionlint includes it.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

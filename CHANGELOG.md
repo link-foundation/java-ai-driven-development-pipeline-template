@@ -47,4 +47,3 @@ This implementation:
   - `create-manual-changeset.mjs` - Manual fragment creation
 - Example code demonstrating library usage
 - Comprehensive documentation (README, CONTRIBUTING)
-

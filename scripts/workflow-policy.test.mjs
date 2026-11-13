@@ -106,9 +106,9 @@ function readRepositoryFile(...parts) {
   return readFileSync(resolve(import.meta.dirname, '..', ...parts), 'utf8');
 }
 
-test('Dependabot proposes Maven and GitHub Actions updates weekly with a cooldown', () => {
+test('Dependabot proposes Maven, GitHub Actions and pre-commit updates weekly with a cooldown', () => {
   const dependabot = readRepositoryFile('.github', 'dependabot.yml');
-  for (const ecosystem of ['maven', 'github-actions']) {
+  for (const ecosystem of ['maven', 'github-actions', 'pre-commit']) {
     const entry = dependabot.split(/\n  - package-ecosystem: /).find(block => block.startsWith(`${ecosystem}\n`));
     assert.ok(entry, `${ecosystem} is configured`);
     assert.match(entry, /directory: \/\n/);
@@ -121,7 +121,7 @@ test('plugin versions stay in properties and requireMavenVersion stays a range',
   const pom = readRepositoryFile('pom.xml');
   const plugins = [...pom.matchAll(/<plugin>([\s\S]*?)<\/plugin>/g)].map(match => match[1].replace(/<configuration>[\s\S]*?<\/configuration>/g, ''));
   for (const plugin of plugins) assert.match(plugin, /<version>\$\{[\w.-]+\.version\}<\/version>/);
-  assert.match(pom, /<requireMavenVersion>\s*<version>\[3\.8\.0,\)<\/version>/);
+  assert.match(pom, /<requireMavenVersion>\s*<version>\[3\.10\.0,\)<\/version>/);
 });
 
 test('the security workflow audits Maven dependencies and plugins on PRs, main, and a schedule', () => {

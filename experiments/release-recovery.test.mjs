@@ -140,7 +140,7 @@ for (const fail of [false, true]) {
     f.git('add', 'source.txt');
     f.git('commit', '-qm', 'later source');
     const before = f.git('rev-parse', 'HEAD');
-    const mvn = join(f.cwd, 'bin', 'mvn');
+    const mvn = join(f.cwd, 'mvnw');
     copyFileSync(join(root, 'experiments', 'fixtures', 'fake-mvn.mjs'), mvn);
     chmodSync(mvn, 0o755);
     const workflow = readFileSync(join(root, '.github', 'workflows', 'release.yml'), 'utf8')

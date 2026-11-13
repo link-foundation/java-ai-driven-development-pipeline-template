@@ -127,3 +127,7 @@ jacoco.exec
 *.key
 credentials.json
 secrets.json
+
+# Preserve issue investigation and verification logs
+!/dev/log/issues/24/pulls/25/**/*.log
+!/dev/log/issues/24/pulls/25/*.log
