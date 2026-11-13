@@ -1,0 +1,114 @@
+[INFO] Scanning for projects...
+[INFO] Loaded 24473 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO]
+[INFO] -------------------< com.linkfoundation:my-package >--------------------
+[INFO] Building my-package 0.2.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- spotless:3.11.0:apply (default-cli) @ my-package ---
+[INFO] Loaded 64 auto-discovered prefixes for remote repository ApacheSnapshot (prefixes-ApacheSnapshot.txt)
+[INFO] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[INFO] Spotless.Java is keeping 5 files clean - 0 were changed to be clean, 0 were already clean, 5 were skipped because caching determined they were already clean
+[INFO] Sorting file /tmp/pom7863336754831232556.xml
+[INFO] Pom file is already sorted, exiting
+[INFO] Spotless.Pom is keeping 1 files clean - 0 were changed to be clean, 1 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] Spotless.Markdown is keeping 9 files clean - 0 were changed to be clean, 0 were already clean, 9 were skipped because caching determined they were already clean
+[INFO]
+[INFO] --- clean:3.5.0:clean (default-clean) @ my-package ---
+[INFO] Deleting /tmp/gh-issue-solver-1794605061783/target
+[INFO]
+[INFO] --- spotless:3.11.0:check (default) @ my-package ---
+[INFO] Index file does not exist. Fallback to an empty index
+[INFO] Spotless.Java is keeping 5 files clean - 0 needs changes to be clean, 5 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] Sorting file /tmp/pom10513611709172746812.xml
+[INFO] Pom file is already sorted, exiting
+[INFO] Spotless.Pom is keeping 1 files clean - 0 needs changes to be clean, 1 were already clean, 0 were skipped because caching determined they were already clean
+[INFO] Spotless.Markdown is keeping 9 files clean - 0 needs changes to be clean, 9 were already clean, 0 were skipped because caching determined they were already clean
+[INFO]
+[INFO] --- enforcer:3.7.0:enforce (enforce-maven) @ my-package ---
+[INFO] Rule 0: org.apache.maven.enforcer.rules.version.RequireMavenVersion passed
+[INFO] Rule 1: org.apache.maven.enforcer.rules.version.RequireJavaVersion passed
+[INFO]
+[INFO] --- jacoco:0.8.16:prepare-agent (prepare-agent) @ my-package ---
+[INFO] argLine set to -javaagent:/home/box/.m2/repository/org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16-runtime.jar=destfile=/tmp/gh-issue-solver-1794605061783/target/jacoco.exec
+[INFO]
+[INFO] --- resources:3.5.0:resources (default-resources) @ my-package ---
+[WARNING] ClassRealm[plugin>org.apache.maven.plugins:maven-resources-plugin:3.5.0, parent: jdk.internal.loader.ClassLoaders$AppClassLoader@5c647e05]
+com.google.inject.CreationException: Unable to create injector, see the following errors:
+
+1) [Guice/DuplicateScopeAnnotations]: More than one scope annotation was found: Singleton and MojoExecutionScoped.
+  at ClassRealm[plugin>org.apache.maven.plugins:maven-resources-plugin:3.5.0, parent: ClassLoaders$AppClassLoader@5c647e05]
+      \_ installed by: WireModule -> PlexusBindingModule
+
+1 error
+
+======================
+Full classname legend:
+======================
+ClassLoaders$AppClassLoader: "jdk.internal.loader.ClassLoaders$AppClassLoader"
+MojoExecutionScoped:         "org.apache.maven.execution.scope.MojoExecutionScoped"
+PlexusBindingModule:         "org.eclipse.sisu.plexus.PlexusBindingModule"
+Singleton:                   "javax.inject.Singleton"
+WireModule:                  "org.eclipse.sisu.wire.WireModule"
+========================
+End of classname legend:
+========================
+
+    at com.google.inject.internal.Errors.throwCreationExceptionIfErrorsExist (Errors.java:576)
+    at com.google.inject.internal.InternalInjectorCreator.initializeStatically (InternalInjectorCreator.java:163)
+    at com.google.inject.internal.InternalInjectorCreator.build (InternalInjectorCreator.java:110)
+    at com.google.inject.Guice.createInjector (Guice.java:87)
+    at com.google.inject.Guice.createInjector (Guice.java:69)
+    at com.google.inject.Guice.createInjector (Guice.java:59)
+    at org.codehaus.plexus.DefaultPlexusContainer.addPlexusInjector (DefaultPlexusContainer.java:444)
+    at org.codehaus.plexus.DefaultPlexusContainer.discoverComponents (DefaultPlexusContainer.java:422)
+    at org.apache.maven.plugin.internal.DefaultMavenPluginManager.discoverPluginComponents (DefaultMavenPluginManager.java:417)
+    at org.apache.maven.plugin.internal.DefaultMavenPluginManager.createPluginRealm (DefaultMavenPluginManager.java:399)
+    at org.apache.maven.plugin.internal.DefaultMavenPluginManager.lambda$setupPluginRealm$2 (DefaultMavenPluginManager.java:350)
+    at org.apache.maven.plugin.DefaultPluginRealmCache.lambda$get$0 (DefaultPluginRealmCache.java:159)
+    at java.util.concurrent.ConcurrentHashMap.computeIfAbsent (ConcurrentHashMap.java:1735)
+    at org.apache.maven.plugin.DefaultPluginRealmCache.get (DefaultPluginRealmCache.java:157)
+    at org.apache.maven.plugin.internal.DefaultMavenPluginManager.setupPluginRealm (DefaultMavenPluginManager.java:349)
+    at org.apache.maven.plugin.DefaultBuildPluginManager.getPluginRealm (DefaultBuildPluginManager.java:206)
+    at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo (DefaultBuildPluginManager.java:99)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute2 (MojoExecutor.java:336)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute (MojoExecutor.java:324)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:220)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:181)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.access$000 (MojoExecutor.java:79)
+    at org.apache.maven.lifecycle.internal.MojoExecutor$1.run (MojoExecutor.java:169)
+    at org.apache.maven.plugin.DefaultMojosExecutionStrategy.execute (DefaultMojosExecutionStrategy.java:39)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:166)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:106)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:74)
+    at org.apache.maven.lifecycle.internal.builder.singlethreaded.SingleThreadedBuilder.build (SingleThreadedBuilder.java:56)
+    at org.apache.maven.lifecycle.internal.LifecycleStarter.execute (LifecycleStarter.java:121)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:267)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:179)
+    at org.apache.maven.DefaultMaven.execute (DefaultMaven.java:105)
+    at org.apache.maven.cli.MavenCli.execute (MavenCli.java:1017)
+    at org.apache.maven.cli.MavenCli.doMain (MavenCli.java:299)
+    at org.apache.maven.cli.MavenCli.main (MavenCli.java:219)
+    at jdk.internal.reflect.DirectMethodHandleAccessor.invoke (DirectMethodHandleAccessor.java:104)
+    at java.lang.reflect.Method.invoke (Method.java:583)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launchEnhanced (Launcher.java:255)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launch (Launcher.java:201)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.mainWithExitCode (Launcher.java:362)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.main (Launcher.java:314)
+[INFO] ------------------------------------------------------------------------
+[ERROR] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  6.409 s
+[INFO] Finished at: 2026-11-13T21:42:41Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-resources-plugin:3.5.0:resources (default-resources) on project my-package: Execution default-resources of goal org.apache.maven.plugins:maven-resources-plugin:3.5.0:resources failed: Unable to load the mojo 'resources' (or one of its required components) from the plugin 'org.apache.maven.plugins:maven-resources-plugin:3.5.0': java.util.NoSuchElementException
+[ERROR]       role: org.apache.maven.plugin.Mojo
+[ERROR]   roleHint: org.apache.maven.plugins:maven-resources-plugin:3.5.0:resources
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/PluginContainerException

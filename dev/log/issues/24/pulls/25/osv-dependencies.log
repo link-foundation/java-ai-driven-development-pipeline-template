@@ -1,0 +1,4 @@
+Starting filesystem walk for root: /
+Scanned /tmp/gh-issue-solver-1794605061783/pom.xml file and found 2 packages
+End status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 10.433625ms elapsed, 10.433735ms wall time
+Warning: enricher transitivedependency/pomxml may be risky when run on untrusted artifacts. Please ensure you trust the source code and artifacts.

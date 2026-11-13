@@ -8,7 +8,7 @@ A production-ready Java project template designed for AI-driven development work
 
 ## Features
 
-- **Multi-version Java Support**: Tested with Java 27.0.1
+- **Java 27 Support**: Tested with Java 27.0.1 on Linux, macOS and Windows
 - **Comprehensive Testing**: JUnit 6 with parameterized tests and coverage reporting
 - **Code Quality Tools**:
   - Spotless (Google Java Format) for consistent formatting
@@ -111,9 +111,6 @@ MyPackage.delay(1000).join();              // Waits for 1 second
 ```bash
 # Build and run
 ./mvnw package
-java -jar target/my-package-0.1.0.jar
-
-# Or run directly
 java -jar target/my-package-0.2.0.jar
 ```
 

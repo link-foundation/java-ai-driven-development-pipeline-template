@@ -1,0 +1,558 @@
+diff --git a/.changeset/fix-ci-gates-and-size-warnings.md b/.changeset/fix-ci-gates-and-size-warnings.md
+new file mode 100644
+index 0000000..15fb47a
+--- /dev/null
++++ b/.changeset/fix-ci-gates-and-size-warnings.md
+@@ -0,0 +1,9 @@
++---
++'my-package': patch
++---
++
++Report outdated CI dependencies as warnings on every event so upstream releases do
++not block unrelated PRs during Dependabot's cooldown. Accept full action commit SHA
++pins with exact version comments and verify that each tag resolves to the pinned
++commit. Retry all OSV-Scanner download errors with a delay and connection timeout.
++Check JavaScript files as well as Java files and warn from 900 lines (#22).
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index 02bfaf3..7e25399 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -42,7 +42,7 @@ jobs:
+         run: |
+           set -euo pipefail
+           mkdir -p "$RUNNER_TEMP/osv-scanner"
+-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/osv-scanner/osv-scanner" \
++          curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o "$RUNNER_TEMP/osv-scanner/osv-scanner" \
+             "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+           echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner/osv-scanner" | sha256sum --check --strict
+           chmod +x "$RUNNER_TEMP/osv-scanner/osv-scanner"
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 6429303..8294251 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -112,14 +112,18 @@ mvn spotless:apply
+ ### CI Tool Versions
+
+ Use explicit hosted runner images and exact stable action and Bun versions in
+-workflows. Actionlint also requires an image digest. Workflow policy tests reject
+-runner aliases and mutable tool pins. The dependency freshness check runs on PRs,
++workflows. Actions may also use a full 40-character commit SHA with a trailing
++`# vX.Y.Z` comment; the checker verifies that the tag resolves to that commit.
++Actionlint also requires an image digest. Workflow policy tests reject runner
++aliases and mutable tool pins. The dependency freshness check runs on PRs,
+ pushes to `main`, manual dispatches, and weekly; it checks action releases, the
+ Bun runtime, the Actionlint version and Docker image digest, and downloaded tools
+ such as OSV-Scanner (`OSV_SCANNER_VERSION` plus `OSV_SCANNER_SHA256`, compared with
+-the release asset digest). An outdated pin fails only pull requests; on other
+-events it is reported as a warning and in the step summary, and Dependabot proposes
+-action bumps. Mismatched digests or checksums and lookup errors always fail.
++the release asset digest). An outdated pin is reported as a warning and in the step
++summary on every event, including pull requests, so upstream releases do not block
++unrelated changes during
++Dependabot's seven-day cooldown. Dependabot proposes action bumps. Mismatched
++SHAs, digests or checksums and lookup errors always fail.
+
+ Keep every Maven plugin version in a `pom.xml` property and keep
+ `requireMavenVersion` a range, so Dependabot can bump plugins safely.
+@@ -163,7 +167,8 @@ public static long add(long a, long b) {
+
+ - Keep methods focused and under 50 lines
+ - Keep classes under 500 lines
+-- Keep files under 1000 lines (enforced by CI)
++- Keep Java, `.mjs`, and `.js` files at or below 1000 lines (enforced by CI);
++  the size check emits a warning from 900 lines
+ - Use meaningful variable and method names
+ - Avoid nested callbacks and complex control flow
+ - Prefer immutability where possible
+diff --git a/experiments/ci-dependencies.test.mjs b/experiments/ci-dependencies.test.mjs
+index 4c19672..aaff7aa 100644
+--- a/experiments/ci-dependencies.test.mjs
++++ b/experiments/ci-dependencies.test.mjs
+@@ -108,13 +108,7 @@ test('downloaded tool checksums must match the release asset digest', async () =
+ const outdated = { kind: 'outdated', message: 'workflow.yml: actions/checkout v7.0.0 is outdated; latest stable is v7.0.1' };
+ const broken = { kind: 'broken', message: 'workflow.yml: Actionlint v1.7.12 image digest does not match Docker Hub' };
+
+-test('outdated pins fail pull requests', () => {
+-  const result = report([outdated], 1, 'pull_request');
+-  assert.equal(result.exitCode, 1);
+-  assert.match(result.lines[0], /^::error title=Outdated CI dependency::.*v7\.0\.0 is outdated/);
+-});
+-
+-for (const event of ['push', 'schedule', 'workflow_dispatch', undefined]) {
++for (const event of ['pull_request', 'pull_request_target', 'push', 'schedule', 'workflow_dispatch', undefined]) {
+   test(`outdated pins only warn on ${event || 'local runs'}`, () => {
+     const result = report([outdated], 1, event);
+     assert.equal(result.exitCode, 0);
+@@ -137,7 +131,7 @@ test('current pins pass with a summary', () => {
+   assert.deepEqual(result.lines, ['All 3 CI dependency declarations match their latest stable releases.']);
+ });
+
+-test('the script gates a stale pin by event end to end', t => {
++test('the script warns about stale pins on every event end to end', t => {
+   const directory = mkdtempSync(join(tmpdir(), 'java-ci-dependencies-e2e-'));
+   t.after(() => rmSync(directory, { recursive: true, force: true }));
+   const workflowsDirectory = join(directory, 'workflows');
+@@ -155,14 +149,93 @@ test('the script gates a stale pin by event end to end', t => {
+     env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, CI_DEPENDENCIES_WORKFLOW_DIRECTORY: workflowsDirectory, GITHUB_EVENT_NAME: event, GITHUB_STEP_SUMMARY: join(directory, `summary-${event}.md`) },
+   });
+
+-  const pullRequest = run('pull_request');
+-  assert.equal(pullRequest.status, 1, pullRequest.stdout + pullRequest.stderr);
+-  assert.match(pullRequest.stdout, /::error title=Outdated CI dependency::.*v7\.0\.0 is outdated; latest stable is v7\.0\.1/);
+-
+-  for (const event of ['push', 'schedule']) {
++  for (const event of ['pull_request', 'push', 'schedule', 'workflow_dispatch']) {
+     const result = run(event);
+     assert.equal(result.status, 0, result.stdout + result.stderr);
+     assert.match(result.stdout, /::warning title=Outdated CI dependency::.*v7\.0\.0 is outdated/);
+     assert.match(readFileSync(join(directory, `summary-${event}.md`), 'utf8'), /## CI dependency freshness/);
+   }
+ });
++
++const actionSha = 'a'.repeat(40);
++
++for (const reference of [
++  `actions/checkout@${actionSha} # v7.0.1`,
++  `"actions/checkout@${actionSha}" # v7.0.1`,
++  `'actions/checkout@${actionSha.toUpperCase()}' # v7.0.1`,
++  `owner/repo/sub/action@${actionSha} # v1.2.3`,
++]) {
++  test(`collects immutable action reference: ${reference}`, t => {
++    const [dependency] = workflows(t, `steps:\n  - uses: ${reference}\n`);
++    assert.equal(dependency.sha, actionSha);
++    assert.match(dependency.version, /^v\d+\.\d+\.\d+$/);
++  });
++}
++
++for (const reference of [
++  `actions/checkout@${actionSha}`,
++  `actions/checkout@${actionSha} # v7`,
++  `actions/checkout@${actionSha} # v7.0.1-beta`,
++  `actions/checkout@${'a'.repeat(39)} # v7.0.1`,
++  `actions/checkout@main # v7.0.1`,
++]) {
++  test(`rejects invalid immutable action reference: ${reference}`, t => {
++    assert.throws(() => workflows(t, `uses: ${reference}\n`), /exact stable|SHA/);
++  });
++}
++
++test('SHA-pinned setup-bun still requires an exact runtime version', t => {
++  assert.throws(() => workflows(t, `uses: oven-sh/setup-bun@${actionSha} # v2.2.0\n`), /bun-version/);
++});
++
++test('verifies the commented tag SHA, caches by repository and version, and reports mismatches', async () => {
++  const dependency = { path: 'ci.yml', repo: 'actions/checkout', version: 'v7.0.1', sha: actionSha };
++  const calls = [];
++  const resolveTag = (repo, version) => { calls.push(`${repo}@${version}`); return actionSha; };
++  const problems = await findProblems([
++    dependency, dependency, { ...dependency, sha: 'b'.repeat(40) },
++    { ...dependency, repo: 'other/action' }, { ...dependency, version: 'v7.0.0' },
++  ], () => 'v7.0.1', undefined, undefined, resolveTag);
++  assert.deepEqual(calls, ['actions/checkout@v7.0.1', 'other/action@v7.0.1', 'actions/checkout@v7.0.0']);
++  assert.deepEqual(problems.map(problem => problem.kind), ['broken', 'outdated']);
++  assert.match(problems[0].message, /SHA.*does not match.*v7\.0\.1/);
++  for (const event of ['pull_request', 'push', 'schedule']) assert.equal(report(problems, 5, event).exitCode, 1);
++});
++
++test('tag lookup failures remain fatal', async () => {
++  await assert.rejects(findProblems([
++    { path: 'ci.yml', repo: 'actions/checkout', version: 'v7.0.1', sha: actionSha },
++  ], () => 'v7.0.1', undefined, undefined, () => { throw new Error('tag lookup failed'); }), /tag lookup failed/);
++});
++
++test('CLI resolves annotated or lightweight version tags through commits and fails closed', { timeout: 10000 }, t => {
++  const directory = mkdtempSync(join(tmpdir(), 'sha-pin-e2e-'));
++  t.after(() => rmSync(directory, { recursive: true, force: true }));
++  const bin = join(directory, 'bin');
++  mkdirSync(bin);
++  const workflowDirectory = join(directory, 'workflows');
++  mkdirSync(workflowDirectory);
++  writeFileSync(join(workflowDirectory, 'ci.yml'), `uses: actions/checkout@${actionSha} # v7.0.1\n`);
++  const fakeGh = join(bin, 'gh');
++  writeFileSync(fakeGh, `#!${process.execPath}
++const endpoint = process.argv[3];
++if (endpoint === 'repos/actions/checkout/releases/latest') {
++  process.stdout.write(JSON.stringify({ tag_name: 'v7.0.2' }));
++} else if (endpoint === 'repos/actions/checkout/commits/v7.0.1') {
++  if (process.env.SHA_MODE === 'error') process.exit(1);
++  process.stdout.write(JSON.stringify({ sha: process.env.SHA_MODE === 'invalid' ? 'not-a-sha' : process.env.SHA_MODE === 'mismatch' ? '${'b'.repeat(40)}' : '${actionSha.toUpperCase()}' }));
++} else { process.exit(2); }
++`);
++  chmodSync(fakeGh, 0o755);
++  for (const mode of ['match', 'mismatch', 'invalid', 'error']) {
++    const result = spawnSync(process.execPath, [resolve(import.meta.dirname, '../scripts/check-ci-dependencies.mjs')], {
++      encoding: 'utf8', timeout: 5000,
++      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, CI_DEPENDENCIES_WORKFLOW_DIRECTORY: workflowDirectory,
++        GITHUB_EVENT_NAME: 'pull_request', SHA_MODE: mode, GITHUB_STEP_SUMMARY: join(directory, 'summary') },
++    });
++    assert.equal(result.status, mode === 'match' ? 0 : 1, result.stdout + result.stderr);
++    if (mode === 'match') assert.match(result.stdout, /::warning title=Outdated CI dependency/);
++    if (mode === 'mismatch') assert.match(result.stdout, /::error title=CI dependency pin mismatch::.*SHA.*does not match tag/);
++    if (mode === 'invalid' || mode === 'error') assert.match(result.stderr, /::error title=CI dependency check failed/);
++  }
++});
+diff --git a/experiments/file-size.test.mjs b/experiments/file-size.test.mjs
+new file mode 100644
+index 0000000..538b0d0
+--- /dev/null
++++ b/experiments/file-size.test.mjs
+@@ -0,0 +1,57 @@
++import assert from 'node:assert/strict';
++import { spawnSync } from 'node:child_process';
++import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join, resolve } from 'node:path';
++import test from 'node:test';
++
++const script = resolve(import.meta.dirname, '../scripts/check-file-size.mjs');
++function fixture(t) {
++  const directory = mkdtempSync(join(tmpdir(), 'file-size-'));
++  t.after(() => rmSync(directory, { recursive: true, force: true }));
++  return directory;
++}
++function run(directory, args = []) {
++  return spawnSync(process.execPath, [script, ...args], {
++    cwd: directory, encoding: 'utf8', timeout: 10000,
++  });
++}
++
++for (const extension of ['java', 'mjs', 'js']) {
++  for (const lines of [899, 900, 999, 1000, 1001]) {
++    test(`${extension}: ${lines} lines respects warning and failure boundaries`, t => {
++      const directory = fixture(t);
++      mkdirSync(join(directory, 'nested'));
++      writeFileSync(join(directory, 'nested', `source.${extension}`), '// line\n'.repeat(lines));
++      const result = run(directory);
++      assert.equal(result.status, lines > 1000 ? 1 : 0, result.stdout + result.stderr);
++      if (lines >= 900 && lines <= 1000) {
++        assert.match(result.stdout, /::warning title=File size warning::.*source\./);
++        assert.match(result.stdout, new RegExp(`${lines} lines`));
++      } else {
++        assert.doesNotMatch(result.stdout, /::warning/);
++      }
++    });
++  }
++}
++
++test('ignores generated directories and unrelated files, and preserves custom limits', t => {
++  const directory = fixture(t);
++  for (const excluded of ['target', 'node_modules', '.git', '.idea', 'build']) {
++    mkdirSync(join(directory, excluded));
++    writeFileSync(join(directory, excluded, 'large.mjs'), '// line\n'.repeat(1001));
++  }
++  writeFileSync(join(directory, 'notes.md'), 'line\n'.repeat(1001));
++  writeFileSync(join(directory, 'small.js'), '// line\n'.repeat(11));
++  assert.equal(run(directory).status, 0);
++  assert.equal(run(directory, ['--max-lines', '10']).status, 1);
++});
++
++test('counts an unterminated last line and escapes contributor filenames in annotations', t => {
++  const directory = fixture(t);
++  writeFileSync(join(directory, 'source%\n::error::injected.js'), '// line\n'.repeat(899) + '// last');
++  const result = run(directory);
++  assert.equal(result.status, 0, result.stderr);
++  assert.match(result.stdout, /::warning title=File size warning::.*source%25%0A::error::injected.js.*900 lines/);
++  assert.doesNotMatch(result.stdout, /^::error::injected/m);
++});
+diff --git a/experiments/osv-download.test.mjs b/experiments/osv-download.test.mjs
+new file mode 100644
+index 0000000..8fd13b5
+--- /dev/null
++++ b/experiments/osv-download.test.mjs
+@@ -0,0 +1,45 @@
++import assert from 'node:assert/strict';
++import { spawn } from 'node:child_process';
++import { createHash } from 'node:crypto';
++import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
++import { createServer } from 'node:http';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import test from 'node:test';
++
++// Run the actual installation block against a bounded local server. The first
++// response ends before Content-Length bytes arrive (curl error 18); retry succeeds.
++test('OSV installation retries a partial transfer and verifies the downloaded checksum', { timeout: 20000 }, async t => {
++  const directory = mkdtempSync(join(tmpdir(), 'osv-download-'));
++  t.after(() => rmSync(directory, { recursive: true, force: true }));
++  const binary = '#!/bin/sh\necho scanner\n';
++  let requests = 0;
++  const server = createServer((request, response) => {
++    requests++;
++    response.setHeader('Content-Length', Buffer.byteLength(binary));
++    response.setHeader('Connection', 'close');
++    response.end(requests === 1 ? binary.slice(0, 5) : binary);
++  });
++  t.after(() => server.close());
++  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
++  const workflow = readFileSync(new URL('../.github/workflows/security.yml', import.meta.url), 'utf8');
++  const script = workflow.split('      - name: Install OSV-Scanner\n')[1]
++    .split('        run: |\n')[1].split('\n      - name:')[0]
++    .replace('https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64',
++      `http://127.0.0.1:${server.address().port}/scanner`);
++  const child = spawn('bash', ['-c', script], {
++    env: { ...process.env, RUNNER_TEMP: directory, GITHUB_PATH: join(directory, 'path'),
++      OSV_SCANNER_SHA256: createHash('sha256').update(binary).digest('hex') },
++    timeout: 15000,
++  });
++  t.after(() => { if (child.exitCode === null) child.kill(); });
++  let output = '';
++  child.stdout.on('data', data => { output += data; });
++  child.stderr.on('data', data => { output += data; });
++  const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
++  assert.equal(code, 0, output);
++  assert.equal(requests, 2, output);
++  assert.match(output, /curl: \(18\)/);
++  assert.match(output, /: OK/);
++  assert.equal(readFileSync(join(directory, 'osv-scanner', 'osv-scanner'), 'utf8'), binary);
++});
+diff --git a/scripts/check-ci-dependencies.mjs b/scripts/check-ci-dependencies.mjs
+index 07c0775..de67060 100644
+--- a/scripts/check-ci-dependencies.mjs
++++ b/scripts/check-ci-dependencies.mjs
+@@ -3,9 +3,9 @@
+  * Check workflow action refs and separately downloaded CI tools against stable releases.
+  *
+  * A newer upstream release is external state, not something the checked commit caused
+- * (CI/CD best practices, principle 17). Outdated pins therefore fail only pull requests,
+- * where a contributor can act; on push, schedule, and manual runs they are reported as
+- * warnings plus a step summary, and Dependabot (.github/dependabot.yml) proposes the bump.
++ * (CI/CD best practices, principle 17). Outdated pins are reported as warnings plus
++ * a step summary on every event. Dependabot (.github/dependabot.yml) proposes bumps
++ * after its cooldown without blocking unrelated pull requests.
+  * Mutable pins, checksum or digest mismatches, and lookup errors fail on every event.
+  */
+ import { execFileSync } from 'node:child_process';
+@@ -29,7 +29,7 @@ export function collectDependencies(directory) {
+     const yaml = readFileSync(path, 'utf8');
+     let bunActions = 0;
+     let bunVersions = 0;
+-    for (const [, literal] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?uses:[ \t]*([^\s#]+)/gm)) {
++    for (const [, literal, comment] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?uses:[ \t]*([^\s#]+)[ \t]*(?:#([^\r\n]*))?/gm)) {
+       const reference = literal.replace(/^(['"])(.*)\1$/, '$2');
+       if (reference.startsWith('./')) continue;
+       if (reference.startsWith('docker://')) {
+@@ -38,10 +38,14 @@ export function collectDependencies(directory) {
+         dependencies.push({ path, repo: 'rhysd/actionlint', version: `v${match[1]}`, digest: `sha256:${match[2]}` });
+         continue;
+       }
+-      const match = reference.match(/^([\w.-]+\/[\w.-]+)(?:\/[^@]+)?@(v\d+\.\d+\.\d+)$/);
+-      if (!match) throw new Error(`${name}: use an exact stable action version: ${reference}`);
+-      dependencies.push({ path, repo: match[1], version: match[2] });
+-      if (match[1] === 'oven-sh/setup-bun') bunActions++;
++      const match = reference.match(/^([\w.-]+\/[\w.-]+)(?:\/[^@]+)?@(v\d+\.\d+\.\d+|[a-fA-F0-9]{40})$/);
++      if (!match) throw new Error(`${name}: use an exact stable action version or full SHA with a # vX.Y.Z comment: ${reference}`);
++      const [, repo, ref] = match;
++      const sha = /^[a-fA-F0-9]{40}$/.test(ref) ? ref.toLowerCase() : undefined;
++      const version = sha ? comment?.trim().match(/^(v\d+\.\d+\.\d+)$/)?.[1] : ref;
++      if (!version) throw new Error(`${name}: SHA-pinned actions need an exact stable # vX.Y.Z comment: ${reference}`);
++      dependencies.push({ path, repo, version, ...(sha ? { sha } : {}) });
++      if (repo === 'oven-sh/setup-bun') bunActions++;
+     }
+     for (const [, version] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?bun-version:[ \t]*['"]?([^\s'"#]+)/gm)) {
+       if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`${name}: pin bun-version to an exact stable version`);
+@@ -94,13 +98,21 @@ function releaseAssetDigest(repo, version, asset) {
+   return digest.slice('sha256:'.length);
+ }
+
++function actionTagSha(repo, version) {
++  // The commits endpoint resolves lightweight and annotated tags to the commit.
++  const commit = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/commits/${version}`], { encoding: 'utf8' }));
++  if (!/^[a-fA-F0-9]{40}$/.test(commit.sha || '')) throw new Error(`${repo} ${version}: tag resolved to no valid commit SHA`);
++  return commit.sha.toLowerCase();
++}
++
+ /**
+  * Cache upstream lookups and classify each problem. `outdated` means a newer stable release
+- * exists; `broken` means a pinned digest or checksum does not match upstream. Lookup errors throw.
++ * exists; `broken` means a pinned SHA, digest or checksum does not match upstream. Lookup errors throw.
+  */
+-export async function findProblems(dependencies, latest = latestRelease, digest = actionlintDigest, assetDigest = releaseAssetDigest) {
++export async function findProblems(dependencies, latest = latestRelease, digest = actionlintDigest, assetDigest = releaseAssetDigest, tagSha = actionTagSha) {
+   const releases = new Map();
+   const digests = new Map();
++  const commits = new Map();
+   const problems = [];
+   for (const dependency of dependencies) {
+     const { path, repo, version } = dependency;
+@@ -109,6 +121,13 @@ export async function findProblems(dependencies, latest = latestRelease, digest
+     if (version !== current) {
+       problems.push({ kind: OUTDATED, message: `${path}: ${repo} ${version} is outdated; latest stable is ${current}` });
+     }
++    if (dependency.sha) {
++      const key = `${repo}@${version}`;
++      if (!commits.has(key)) commits.set(key, await tagSha(repo, version));
++      if (dependency.sha !== commits.get(key)) {
++        problems.push({ kind: BROKEN, message: `${path}: ${repo} SHA ${dependency.sha} does not match tag ${version}` });
++      }
++    }
+     if (dependency.digest) {
+       if (!digests.has(version)) digests.set(version, await digest(version));
+       if (dependency.digest !== digests.get(version)) {
+@@ -137,29 +156,28 @@ function escapeCommandData(value) {
+
+ /**
+  * Turn problems into an exit code, workflow-command lines, and a step summary.
+- * Outdated pins fail only `pull_request`; broken pins fail on every event.
++ * Outdated pins warn on every event; broken pins always fail.
+  */
+-export function report(problems, count, eventName) {
+-  const gate = eventName === 'pull_request';
++export function report(problems, count) {
+   const outdated = problems.filter(problem => problem.kind === OUTDATED);
+   const broken = problems.filter(problem => problem.kind !== OUTDATED);
+   const lines = [];
+   for (const { message } of broken) lines.push(`::error title=CI dependency pin mismatch::${escapeCommandData(message)}`);
+   for (const { message } of outdated) {
+-    lines.push(`::${gate ? 'error' : 'warning'} title=Outdated CI dependency::${escapeCommandData(message)}`);
++    lines.push(`::warning title=Outdated CI dependency::${escapeCommandData(message)}`);
+   }
+   if (!problems.length) lines.push(`All ${count} CI dependency declarations match their latest stable releases.`);
+-  else if (outdated.length && !gate) {
+-    lines.push(`${outdated.length} outdated CI dependency pin(s) reported as warnings because event "${eventName || 'local'}" is not a pull request; Dependabot or a pull request bumps them.`);
++  else if (outdated.length) {
++    lines.push(`${outdated.length} outdated CI dependency pin(s) reported as warnings; Dependabot or a pull request bumps them.`);
+   }
+   const summary = ['## CI dependency freshness', ''];
+   if (!problems.length) summary.push(`All ${count} CI dependency declarations match their latest stable releases.`);
+   for (const { message } of broken) summary.push(`- :x: ${message}`);
+-  for (const { message } of outdated) summary.push(`- ${gate ? ':x:' : ':warning:'} ${message}`);
+-  if (outdated.length && !gate) {
+-    summary.push('', 'A newer upstream release is external state, so it is a warning outside pull requests. Bump the pins in a pull request (Dependabot proposes action bumps).');
++  for (const { message } of outdated) summary.push(`- :warning: ${message}`);
++  if (outdated.length) {
++    summary.push('', 'A newer upstream release is external state, so it is a warning on every event. Bump the pins in a pull request (Dependabot proposes action bumps).');
+   }
+-  const exitCode = broken.length || (gate && outdated.length) ? 1 : 0;
++  const exitCode = broken.length ? 1 : 0;
+   return { exitCode, lines, summary: `${summary.join('\n')}\n` };
+ }
+
+@@ -167,7 +185,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
+   try {
+     const directory = process.env.CI_DEPENDENCIES_WORKFLOW_DIRECTORY || resolve(import.meta.dirname, '..', '.github', 'workflows');
+     const dependencies = collectDependencies(directory);
+-    const result = report(await findProblems(dependencies), dependencies.length, process.env.GITHUB_EVENT_NAME);
++    const result = report(await findProblems(dependencies), dependencies.length);
+     for (const line of result.lines) console.log(line);
+     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, result.summary);
+     process.exitCode = result.exitCode;
+diff --git a/scripts/check-file-size.mjs b/scripts/check-file-size.mjs
+index 7bfa4e3..a26ecb2 100644
+--- a/scripts/check-file-size.mjs
++++ b/scripts/check-file-size.mjs
+@@ -2,8 +2,8 @@
+ /**
+  * File size validation script.
+  *
+- * Checks that all Java files in the project do not exceed the maximum
+- * allowed line count (1000 lines by default).
++ * Checks that all Java and JavaScript files in the project do not exceed the maximum
++ * allowed line count (1000 lines by default), warning from 900 lines.
+  *
+  * Usage:
+  *   bun scripts/check-file-size.mjs [--max-lines <number>] [--verbose]
+@@ -14,6 +14,7 @@ import { join, extname } from 'path';
+ import { printUntrusted } from './github-actions-log.mjs';
+
+ const MAX_LINES_DEFAULT = 1000;
++const WARNING_LINES = 900;
+
+ /**
+  * Parse command line arguments.
+@@ -36,12 +37,12 @@ function parseArgs() {
+ }
+
+ /**
+- * Recursively find all Java files in a directory.
++ * Recursively find all Java and JavaScript files in a directory.
+  * @param {string} dir - Directory to search
+  * @param {string[]} files - Accumulator array
+  * @returns {string[]} Array of file paths
+  */
+-function findJavaFiles(dir, files = []) {
++function findSourceFiles(dir, files = []) {
+   const excludeDirs = ['target', 'node_modules', '.git', '.idea', 'build'];
+
+   try {
+@@ -58,8 +59,8 @@ function findJavaFiles(dir, files = []) {
+         const stat = statSync(fullPath);
+
+         if (stat.isDirectory()) {
+-          findJavaFiles(fullPath, files);
+-        } else if (extname(entry) === '.java') {
++          findSourceFiles(fullPath, files);
++        } else if (['.java', '.mjs', '.js'].includes(extname(entry))) {
+           files.push(fullPath);
+         }
+       } catch {
+@@ -80,7 +81,8 @@ function findJavaFiles(dir, files = []) {
+  */
+ function countLines(filePath) {
+   const content = readFileSync(filePath, 'utf-8');
+-  return content.split('\n').length;
++  if (!content) return 0;
++  return content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
+ }
+
+ /**
+@@ -90,12 +92,12 @@ function main() {
+   const { maxLines, verbose } = parseArgs();
+   const projectRoot = process.cwd();
+
+-  console.log(`Checking Java files for maximum ${maxLines} lines...`);
++  console.log(`Checking Java and JavaScript files for maximum ${maxLines} lines...`);
+
+-  const javaFiles = findJavaFiles(projectRoot);
++  const sourceFiles = findSourceFiles(projectRoot);
+   const violations = [];
+
+-  for (const file of javaFiles) {
++  for (const file of sourceFiles) {
+     const lineCount = countLines(file);
+     const relativePath = file.replace(projectRoot + '/', '');
+
+@@ -106,6 +108,10 @@ function main() {
+
+     if (lineCount > maxLines) {
+       violations.push({ file: relativePath, lines: lineCount });
++    } else if (lineCount >= WARNING_LINES) {
++      // Escape workflow-command data so contributor-controlled filenames stay data.
++      const safePath = relativePath.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
++      console.log(`::warning title=File size warning::${safePath} has ${lineCount} lines (warning: ${WARNING_LINES}, max: ${maxLines}); consider splitting it.`);
+     }
+   }
+
+@@ -119,7 +125,7 @@ function main() {
+     process.exit(1);
+   }
+
+-  console.log(`\nAll ${javaFiles.length} files pass the size check.`);
++  console.log(`\nAll ${sourceFiles.length} files pass the size check.`);
+   process.exit(0);
+ }
+
+diff --git a/scripts/workflow-policy.test.mjs b/scripts/workflow-policy.test.mjs
+index 0151e2a..6b8d392 100644
+--- a/scripts/workflow-policy.test.mjs
++++ b/scripts/workflow-policy.test.mjs
+@@ -106,12 +106,6 @@ function readRepositoryFile(...parts) {
+   return readFileSync(resolve(import.meta.dirname, '..', ...parts), 'utf8');
+ }
+
+-test('outdated CI pins fail pull requests but only warn on push and schedule', () => {
+-  const checker = readRepositoryFile('scripts', 'check-ci-dependencies.mjs');
+-  assert.match(checker, /eventName === 'pull_request'/);
+-  assert.match(checker, /GITHUB_STEP_SUMMARY/);
+-});
+-
+ test('Dependabot proposes Maven and GitHub Actions updates weekly with a cooldown', () => {
+   const dependabot = readRepositoryFile('.github', 'dependabot.yml');
+   for (const ecosystem of ['maven', 'github-actions']) {
+@@ -136,6 +130,7 @@ test('the security workflow audits Maven dependencies and plugins on PRs, main,
+   assert.match(security, /^permissions:\n  contents: read/m);
+   assert.match(security, /OSV_SCANNER_VERSION: v\d+\.\d+\.\d+\n/);
+   assert.match(security, /OSV_SCANNER_SHA256: [a-f0-9]{64}\n/);
++  assert.match(security, /curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20/);
+   assert.match(security, /sha256sum --check --strict/);
+   assert.match(security, /osv-scanner scan source -L pom\.xml/);
+   assert.match(security, /node scripts\/audit-maven-plugins\.mjs pom\.xml/);

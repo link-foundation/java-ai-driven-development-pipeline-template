@@ -1,0 +1,235 @@
+[
+  {
+    "ecosystem": "Maven",
+    "name": "org.junit.jupiter:junit-jupiter",
+    "before": "5.10.2",
+    "latest": "6.1.3",
+    "source": "https://repo.maven.apache.org/maven2/org/junit/jupiter/junit-jupiter/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.junit.jupiter:junit-jupiter-params",
+    "before": "5.10.2",
+    "latest": "6.1.3",
+    "source": "https://repo.maven.apache.org/maven2/org/junit/jupiter/junit-jupiter-params/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-compiler-plugin",
+    "before": "3.16.0",
+    "latest": "3.16.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-compiler-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-surefire-plugin",
+    "before": "3.6.1",
+    "latest": "3.6.1",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-surefire-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-jar-plugin",
+    "before": "3.5.1",
+    "latest": "3.5.1",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-jar-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-source-plugin",
+    "before": "3.4.0",
+    "latest": "3.4.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-source-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-javadoc-plugin",
+    "before": "3.12.0",
+    "latest": "3.12.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-javadoc-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "com.diffplug.spotless:spotless-maven-plugin",
+    "before": "3.10.4",
+    "latest": "3.11.0",
+    "source": "https://repo.maven.apache.org/maven2/com/diffplug/spotless/spotless-maven-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "com.github.spotbugs:spotbugs-maven-plugin",
+    "before": "4.10.5.0",
+    "latest": "4.10.5.0",
+    "source": "https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs-maven-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.jacoco:jacoco-maven-plugin",
+    "before": "0.8.16",
+    "latest": "0.8.16",
+    "source": "https://repo.maven.apache.org/maven2/org/jacoco/jacoco-maven-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-enforcer-plugin",
+    "before": "3.7.0",
+    "latest": "3.7.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-enforcer-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-gpg-plugin",
+    "before": "3.2.8",
+    "latest": "3.2.8",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-gpg-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "com.google.googlejavaformat:google-java-format",
+    "before": "1.19.2",
+    "latest": "2.0.0",
+    "source": "https://repo.maven.apache.org/maven2/com/google/googlejavaformat/google-java-format/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "com.puppycrawl.tools:checkstyle",
+    "before": "10.12.7",
+    "latest": "14.4.0",
+    "source": "https://repo.maven.apache.org/maven2/com/puppycrawl/tools/checkstyle/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-clean-plugin",
+    "before": "(implicit Maven default)",
+    "latest": "3.5.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-clean-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-resources-plugin",
+    "before": "(implicit Maven default)",
+    "latest": "3.5.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-resources-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-install-plugin",
+    "before": "(implicit Maven default)",
+    "latest": "3.2.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-install-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-deploy-plugin",
+    "before": "(implicit Maven default)",
+    "latest": "3.2.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-deploy-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-site-plugin",
+    "before": "(implicit Maven default)",
+    "latest": "3.22.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-site-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven:apache-maven",
+    "before": "[3.8.0,)",
+    "latest": "3.10.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-wrapper-plugin",
+    "before": "(absent)",
+    "latest": "3.3.4",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-wrapper-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.apache.maven.plugins:maven-dependency-plugin",
+    "before": "(implicit/unpinned security resolver)",
+    "latest": "3.11.0",
+    "source": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "Maven",
+    "name": "org.codehaus.mojo:versions-maven-plugin",
+    "before": "(not pinned; maintenance tool)",
+    "latest": "2.25.1",
+    "source": "https://repo.maven.apache.org/maven2/org/codehaus/mojo/versions-maven-plugin/maven-metadata.xml"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "actions/checkout",
+    "latest": "v7.0.1",
+    "source": "https://github.com/actions/checkout/releases/tag/v7.0.1"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "actions/setup-java",
+    "latest": "v6.2.0",
+    "source": "https://github.com/actions/setup-java/releases/tag/v6.2.0"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "actions/setup-node",
+    "latest": "v7.1.0",
+    "source": "https://github.com/actions/setup-node/releases/tag/v7.1.0"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "actions/upload-artifact",
+    "latest": "v7.0.2",
+    "source": "https://github.com/actions/upload-artifact/releases/tag/v7.0.2"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "codecov/codecov-action",
+    "latest": "v7.1.1",
+    "source": "https://github.com/codecov/codecov-action/releases/tag/v7.1.1"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "google/osv-scanner",
+    "latest": "v2.7.1",
+    "source": "https://github.com/google/osv-scanner/releases/tag/v2.7.1"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "oven-sh/bun",
+    "latest": "bun-v1.4.4",
+    "source": "https://github.com/oven-sh/bun/releases/tag/bun-v1.4.4"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "oven-sh/setup-bun",
+    "latest": "v2.2.0",
+    "source": "https://github.com/oven-sh/setup-bun/releases/tag/v2.2.0"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "peter-evans/create-pull-request",
+    "latest": "v8.1.3",
+    "source": "https://github.com/peter-evans/create-pull-request/releases/tag/v8.1.3"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "pre-commit/pre-commit",
+    "latest": "v4.7.0",
+    "source": "https://github.com/pre-commit/pre-commit/releases/tag/v4.7.0"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "pre-commit/pre-commit-hooks",
+    "latest": "v6.0.0",
+    "source": "https://github.com/pre-commit/pre-commit-hooks/releases/tag/v6.0.0"
+  },
+  {
+    "ecosystem": "GitHub/tool",
+    "name": "rhysd/actionlint",
+    "latest": "v1.7.12",
+    "source": "https://github.com/rhysd/actionlint/releases/tag/v1.7.12"
+  }
+]

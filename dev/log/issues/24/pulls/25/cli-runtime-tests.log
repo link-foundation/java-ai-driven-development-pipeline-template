@@ -1,0 +1,11 @@
+✔ every CI script parses under Node.js, including bump-version (951.113134ms)
+✔ bump-version accepts native equals syntax and writes the version and Actions output (97.067008ms)
+✔ native parsing rejects missing values and misspelled release options before writing (148.661044ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1317.342364

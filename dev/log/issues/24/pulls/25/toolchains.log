@@ -1,0 +1,15 @@
+Apache Maven 3.10.0 (c43a36b8d67be7e0805a411bc0898af1a51f5472)
+Maven home: /home/box/.m2/wrapper/dists/apache-maven-3.10.0/dae9a06d
+Java version: 27.0.1.0.2, vendor: Eclipse Adoptium, runtime: /tmp/issue24-tools/jdk-27.0.1.0.2+1
+Default locale: en, platform encoding: UTF-8, time zone: Etc/UTC
+OS name: "linux", version: "6.8.0-147-generic", arch: "amd64", family: "unix"
+v26.13.1
+pre-commit 4.7.0
+1.7.12
+installed by downloading from release page
+built with go1.26.1 compiler for linux/amd64
+osv-scanner version: 2.7.1
+osv-scalibr version: 0.5.3
+commit: 02f96a40691c2d155fdda799af436e111231e365
+built at: 2026-11-09T03:39:40Z
+1.4.4

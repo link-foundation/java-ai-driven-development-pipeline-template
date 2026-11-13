@@ -1,0 +1,8 @@
+/tmp/gh-issue-solver-1794605061783/scripts/bump-version.mjs:170
+    const fs = await import('fs');
+               ^^^^^
+
+SyntaxError: Unexpected reserved word
+    at checkSyntax (node:internal/main/check_syntax:84:5)
+
+Node.js v26.13.0

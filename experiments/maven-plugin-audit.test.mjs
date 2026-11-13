@@ -75,7 +75,6 @@ test('OSV lookup failures propagate instead of reporting no advisories', async (
   await assert.rejects(auditArtifacts(collectBuildArtifacts(pom), async () => { throw new Error('OSV: HTTP 503'); }), /503/);
 });
 
-
 test('resolved Maven reports include test dependencies and plugin transitives without duplicates', () => {
   const artifacts = collectResolvedArtifacts(`
 The following files have been resolved:

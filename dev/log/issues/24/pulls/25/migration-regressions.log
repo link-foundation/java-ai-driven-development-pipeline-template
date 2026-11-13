@@ -1,0 +1,45 @@
+To /tmp/java-release-recovery-TcjdfI/remote.git
+ * [new branch]      HEAD -> master
+To /tmp/java-release-recovery-J8hsTu/remote.git
+ * [new branch]      HEAD -> master
+✔ changeset release recovery: missing release (506.634944ms)
+✔ changeset release recovery: existing release (341.641217ms)
+✔ changeset release recovery: authentication failure (359.202798ms)
+✔ changeset release recovery: network failure (309.720238ms)
+✔ changeset release recovery: rate limit (298.4339ms)
+✔ changeset release recovery: server failure (276.017275ms)
+✔ changeset release recovery: unexpected exit code (368.712773ms)
+✔ changeset release recovery: ambiguous failure (334.79548ms)
+✔ changeset release recovery: missing tag (275.47314ms)
+✔ recovery creates the existing tag release with its changelog section (540.974955ms)
+✔ release creation fails on an unknown lookup rather than treating it as missing (286.764588ms)
+✔ an existing release is left alone (246.336453ms)
+✔ recovery uses the project version rather than a parent or commented version (265.903404ms)
+✔ an unavailable gh executable is unknown rather than missing (169.999643ms)
+✔ lookup debug logs are off by default and protect workflow commands when enabled (415.939075ms)
+✔ recovery build uses tagged source and removes its worktree (480.860268ms)
+✔ recovery build uses tagged source and removes its worktree after Maven fails (435.623165ms)
+✔ normal changeset releases still bump, commit and push (619.163941ms)
+✔ normal instant releases still bump, commit and push (612.000192ms)
+✔ dispatch inputs are never interpolated directly into run scripts (2.931727ms)
+✔ release workflow has the required cancellation and writer serialization policy (0.799943ms)
+✔ Codecov upload is explicit, current, gated, and fail-closed (0.25742ms)
+✔ every release path verifies uploaded artifacts (0.352648ms)
+✔ GitHub output-file redirections are quoted (0.289901ms)
+✔ changeset release jobs run the version script even with no changesets (0.347549ms)
+✔ recovery builds artifacts from the original release tag (0.243714ms)
+✔ all hosted runner images are explicit, including matrix entries (0.468193ms)
+✔ Bun and Actionlint use explicit versions and the Actionlint image has a digest (0.717397ms)
+✔ dependency freshness runs in CI and on a schedule (0.56769ms)
+✔ Dependabot proposes Maven, GitHub Actions and pre-commit updates weekly with a cooldown (0.532674ms)
+✔ plugin versions stay in properties and requireMavenVersion stays a range (4.306111ms)
+✔ the security workflow audits Maven dependencies and plugins on PRs, main, and a schedule (0.609136ms)
+✔ runner-acquisition failures are re-run for every CI workflow, with least privilege (1.706442ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7471.836263
