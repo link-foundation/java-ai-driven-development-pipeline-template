@@ -120,8 +120,8 @@ pushes to `main`, manual dispatches, and weekly; it checks action releases, the
 Bun runtime, the Actionlint version and Docker image digest, and downloaded tools
 such as OSV-Scanner (`OSV_SCANNER_VERSION` plus `OSV_SCANNER_SHA256`, compared with
 the release asset digest). An outdated pin is reported as a warning and in the step
-summary on every event,
-including pull requests, so upstream releases do not block unrelated changes during
+summary on every event, including pull requests, so upstream releases do not block
+unrelated changes during
 Dependabot's seven-day cooldown. Dependabot proposes action bumps. Mismatched
 SHAs, digests or checksums and lookup errors always fail.
 
