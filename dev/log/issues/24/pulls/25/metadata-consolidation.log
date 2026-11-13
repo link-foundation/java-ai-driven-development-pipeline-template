@@ -1,0 +1,5 @@
+transitive-registry-metadata-1.json 70 responses, 211006 bytes
+transitive-registry-metadata-2.json 70 responses, 123015 bytes
+transitive-registry-metadata-3.json 63 responses, 297225 bytes
+All 203 XML metadata responses valid, uniquely indexed and matched to registry URLs and artifact coordinates.
+Collector parses successfully. Before deleting individual snapshots, all 203 were round-trip compared without data loss.

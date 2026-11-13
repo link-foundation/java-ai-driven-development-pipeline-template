@@ -30,7 +30,6 @@ def resolve(item):
     if result.returncode:
         return dict(name=name, before=sorted(before), latest=None, error=result.stderr.decode(), source=url)
     data = result.stdout
-    (root / 'sources' / f'transitive-{group}-{artifact}.xml').write_bytes(data)
     entries = [v.text for v in ET.fromstring(data).findall('versioning/versions/version')]
     stable = [v for v in entries if not re.search(r'(alpha|beta|(?<![a-z])rc|snapshot|milestone|preview|(?:^|[.-])m\d)', v, re.I)]
     # Maven metadata is publication ordered; compare numeric version components,
@@ -40,10 +39,17 @@ def resolve(item):
     stable = [v for v in stable if not re.match(r'^(19|20)\d{6}(\.|$)', v)] or stable
     latest = max(stable, key=key) if stable else entries[-1]
     row_current = sorted(current.get(name, set()))
-    return dict(name=name, before=sorted(before), current=row_current, latest=latest, stable=bool(stable), source=url)
+    return dict(name=name, before=sorted(before), current=row_current, latest=latest, stable=bool(stable), source=url, metadata=data.decode('utf-8'))
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
     rows = sorted(pool.map(resolve, versions.items()), key=lambda row: row['name'])
+metadata = {row['name']: {'source': row['source'], 'xml': row.pop('metadata')} for row in rows if 'metadata' in row}
+# Small indexed batches keep each snapshot below the repository's 500 KiB limit
+# and the complete PR below GitHub's 300-file diff limit.
+names = sorted(metadata)
+for offset in range(0, len(names), 70):
+    batch = {name: metadata[name] for name in names[offset:offset + 70]}
+    (root / f'sources/transitive-registry-metadata-{offset // 70 + 1}.json').write_text(json.dumps(batch, indent=2) + '\n')
 (root / 'sources/transitive-inventory.json').write_text(json.dumps(rows, indent=2) + '\n')
 lines = ['# Resolved Maven artifact inventory', '', 'Registry queries: 2026-11-13. Before is the untouched main commit `600f3c7`; current is the resolved final project/test tree and declared build plugins, with release signing enabled. Versions inside plugin realms are audited separately. Original and final Maven resolution reports and raw metadata are in `sources/`.', '', 'The old super-POM site tool is not declared or invoked anywhere in this repository and is outside the active jar build. It is deliberately not introduced as a new dependency: its unreleased upstream replacement uses the JDK HTTP server (apache/maven-site-plugin#1298). Old artifacts absent from the active final tree are marked removed/replaced, rather than being reported as updated.', '', '| Artifact | Before | Current | Latest stable (or upstream prerelease where no GA exists) | Decision |', '|---|---|---|---|---|']
 for row in rows:

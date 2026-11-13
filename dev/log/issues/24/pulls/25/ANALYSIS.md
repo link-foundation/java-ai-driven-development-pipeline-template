@@ -68,6 +68,8 @@ There are no frontend changes, Dockerfiles, Gradle/Terraform/Helm manifests or g
 
 ## Verification and release plan
 
+The 203 raw transitive Maven metadata responses are indexed by coordinate in `sources/transitive-registry-metadata-*.json`, with the original XML text and source URL for each. Three bounded batches keep each file below the 500 KiB hook limit and the PR below GitHub's 300-file diff limit without losing evidence. Saved upstream text has only hook-required whitespace and line-ending normalization.
+
 Run full Java clean verify sequentially with a 512 MiB Maven heap, all Node tests, syntax/size checks, latest Actionlint, the configured pre-commit hooks, OSV source and actual-resolution audits. CI verifies the same source on Linux, macOS and Windows. Preserve the default-branch SHA and passing runs, re-check all issue/PR feedback, inspect the complete PR diff and confirm current-head checks before marking PR 25 ready.
 
 The major changeset records the Java 27 baseline change. The release workflow continues to compute the package version and update POM/Java constants together, so the unreleased source stays consistently at 0.2.0. No release is published or main merge performed during this task.
