@@ -2,8 +2,8 @@
 /**
  * File size validation script.
  *
- * Checks that all Java files in the project do not exceed the maximum
- * allowed line count (1000 lines by default).
+ * Checks that all Java and JavaScript files in the project do not exceed the maximum
+ * allowed line count (1000 lines by default), warning from 900 lines.
  *
  * Usage:
  *   bun scripts/check-file-size.mjs [--max-lines <number>] [--verbose]
@@ -14,6 +14,7 @@ import { join, extname } from 'path';
 import { printUntrusted } from './github-actions-log.mjs';
 
 const MAX_LINES_DEFAULT = 1000;
+const WARNING_LINES = 900;
 
 /**
  * Parse command line arguments.
@@ -36,12 +37,12 @@ function parseArgs() {
 }
 
 /**
- * Recursively find all Java files in a directory.
+ * Recursively find all Java and JavaScript files in a directory.
  * @param {string} dir - Directory to search
  * @param {string[]} files - Accumulator array
  * @returns {string[]} Array of file paths
  */
-function findJavaFiles(dir, files = []) {
+function findSourceFiles(dir, files = []) {
   const excludeDirs = ['target', 'node_modules', '.git', '.idea', 'build'];
 
   try {
@@ -58,8 +59,8 @@ function findJavaFiles(dir, files = []) {
         const stat = statSync(fullPath);
 
         if (stat.isDirectory()) {
-          findJavaFiles(fullPath, files);
-        } else if (extname(entry) === '.java') {
+          findSourceFiles(fullPath, files);
+        } else if (['.java', '.mjs', '.js'].includes(extname(entry))) {
           files.push(fullPath);
         }
       } catch {
@@ -80,7 +81,8 @@ function findJavaFiles(dir, files = []) {
  */
 function countLines(filePath) {
   const content = readFileSync(filePath, 'utf-8');
-  return content.split('\n').length;
+  if (!content) return 0;
+  return content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
 }
 
 /**
@@ -90,12 +92,12 @@ function main() {
   const { maxLines, verbose } = parseArgs();
   const projectRoot = process.cwd();
 
-  console.log(`Checking Java files for maximum ${maxLines} lines...`);
+  console.log(`Checking Java and JavaScript files for maximum ${maxLines} lines...`);
 
-  const javaFiles = findJavaFiles(projectRoot);
+  const sourceFiles = findSourceFiles(projectRoot);
   const violations = [];
 
-  for (const file of javaFiles) {
+  for (const file of sourceFiles) {
     const lineCount = countLines(file);
     const relativePath = file.replace(projectRoot + '/', '');
 
@@ -106,6 +108,10 @@ function main() {
 
     if (lineCount > maxLines) {
       violations.push({ file: relativePath, lines: lineCount });
+    } else if (lineCount >= WARNING_LINES) {
+      // Escape workflow-command data so contributor-controlled filenames stay data.
+      const safePath = relativePath.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+      console.log(`::warning title=File size warning::${safePath} has ${lineCount} lines (warning: ${WARNING_LINES}, max: ${maxLines}); consider splitting it.`);
     }
   }
 
@@ -119,7 +125,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`\nAll ${javaFiles.length} files pass the size check.`);
+  console.log(`\nAll ${sourceFiles.length} files pass the size check.`);
   process.exit(0);
 }
 

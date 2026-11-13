@@ -108,13 +108,7 @@ test('downloaded tool checksums must match the release asset digest', async () =
 const outdated = { kind: 'outdated', message: 'workflow.yml: actions/checkout v7.0.0 is outdated; latest stable is v7.0.1' };
 const broken = { kind: 'broken', message: 'workflow.yml: Actionlint v1.7.12 image digest does not match Docker Hub' };
 
-test('outdated pins fail pull requests', () => {
-  const result = report([outdated], 1, 'pull_request');
-  assert.equal(result.exitCode, 1);
-  assert.match(result.lines[0], /^::error title=Outdated CI dependency::.*v7\.0\.0 is outdated/);
-});
-
-for (const event of ['push', 'schedule', 'workflow_dispatch', undefined]) {
+for (const event of ['pull_request', 'pull_request_target', 'push', 'schedule', 'workflow_dispatch', undefined]) {
   test(`outdated pins only warn on ${event || 'local runs'}`, () => {
     const result = report([outdated], 1, event);
     assert.equal(result.exitCode, 0);
@@ -137,7 +131,7 @@ test('current pins pass with a summary', () => {
   assert.deepEqual(result.lines, ['All 3 CI dependency declarations match their latest stable releases.']);
 });
 
-test('the script gates a stale pin by event end to end', t => {
+test('the script warns about stale pins on every event end to end', t => {
   const directory = mkdtempSync(join(tmpdir(), 'java-ci-dependencies-e2e-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const workflowsDirectory = join(directory, 'workflows');
@@ -155,14 +149,93 @@ test('the script gates a stale pin by event end to end', t => {
     env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, CI_DEPENDENCIES_WORKFLOW_DIRECTORY: workflowsDirectory, GITHUB_EVENT_NAME: event, GITHUB_STEP_SUMMARY: join(directory, `summary-${event}.md`) },
   });
 
-  const pullRequest = run('pull_request');
-  assert.equal(pullRequest.status, 1, pullRequest.stdout + pullRequest.stderr);
-  assert.match(pullRequest.stdout, /::error title=Outdated CI dependency::.*v7\.0\.0 is outdated; latest stable is v7\.0\.1/);
-
-  for (const event of ['push', 'schedule']) {
+  for (const event of ['pull_request', 'push', 'schedule', 'workflow_dispatch']) {
     const result = run(event);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /::warning title=Outdated CI dependency::.*v7\.0\.0 is outdated/);
     assert.match(readFileSync(join(directory, `summary-${event}.md`), 'utf8'), /## CI dependency freshness/);
+  }
+});
+
+const actionSha = 'a'.repeat(40);
+
+for (const reference of [
+  `actions/checkout@${actionSha} # v7.0.1`,
+  `"actions/checkout@${actionSha}" # v7.0.1`,
+  `'actions/checkout@${actionSha.toUpperCase()}' # v7.0.1`,
+  `owner/repo/sub/action@${actionSha} # v1.2.3`,
+]) {
+  test(`collects immutable action reference: ${reference}`, t => {
+    const [dependency] = workflows(t, `steps:\n  - uses: ${reference}\n`);
+    assert.equal(dependency.sha, actionSha);
+    assert.match(dependency.version, /^v\d+\.\d+\.\d+$/);
+  });
+}
+
+for (const reference of [
+  `actions/checkout@${actionSha}`,
+  `actions/checkout@${actionSha} # v7`,
+  `actions/checkout@${actionSha} # v7.0.1-beta`,
+  `actions/checkout@${'a'.repeat(39)} # v7.0.1`,
+  `actions/checkout@main # v7.0.1`,
+]) {
+  test(`rejects invalid immutable action reference: ${reference}`, t => {
+    assert.throws(() => workflows(t, `uses: ${reference}\n`), /exact stable|SHA/);
+  });
+}
+
+test('SHA-pinned setup-bun still requires an exact runtime version', t => {
+  assert.throws(() => workflows(t, `uses: oven-sh/setup-bun@${actionSha} # v2.2.0\n`), /bun-version/);
+});
+
+test('verifies the commented tag SHA, caches by repository and version, and reports mismatches', async () => {
+  const dependency = { path: 'ci.yml', repo: 'actions/checkout', version: 'v7.0.1', sha: actionSha };
+  const calls = [];
+  const resolveTag = (repo, version) => { calls.push(`${repo}@${version}`); return actionSha; };
+  const problems = await findProblems([
+    dependency, dependency, { ...dependency, sha: 'b'.repeat(40) },
+    { ...dependency, repo: 'other/action' }, { ...dependency, version: 'v7.0.0' },
+  ], () => 'v7.0.1', undefined, undefined, resolveTag);
+  assert.deepEqual(calls, ['actions/checkout@v7.0.1', 'other/action@v7.0.1', 'actions/checkout@v7.0.0']);
+  assert.deepEqual(problems.map(problem => problem.kind), ['broken', 'outdated']);
+  assert.match(problems[0].message, /SHA.*does not match.*v7\.0\.1/);
+  for (const event of ['pull_request', 'push', 'schedule']) assert.equal(report(problems, 5, event).exitCode, 1);
+});
+
+test('tag lookup failures remain fatal', async () => {
+  await assert.rejects(findProblems([
+    { path: 'ci.yml', repo: 'actions/checkout', version: 'v7.0.1', sha: actionSha },
+  ], () => 'v7.0.1', undefined, undefined, () => { throw new Error('tag lookup failed'); }), /tag lookup failed/);
+});
+
+test('CLI resolves annotated or lightweight version tags through commits and fails closed', { timeout: 10000 }, t => {
+  const directory = mkdtempSync(join(tmpdir(), 'sha-pin-e2e-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const bin = join(directory, 'bin');
+  mkdirSync(bin);
+  const workflowDirectory = join(directory, 'workflows');
+  mkdirSync(workflowDirectory);
+  writeFileSync(join(workflowDirectory, 'ci.yml'), `uses: actions/checkout@${actionSha} # v7.0.1\n`);
+  const fakeGh = join(bin, 'gh');
+  writeFileSync(fakeGh, `#!${process.execPath}
+const endpoint = process.argv[3];
+if (endpoint === 'repos/actions/checkout/releases/latest') {
+  process.stdout.write(JSON.stringify({ tag_name: 'v7.0.2' }));
+} else if (endpoint === 'repos/actions/checkout/commits/v7.0.1') {
+  if (process.env.SHA_MODE === 'error') process.exit(1);
+  process.stdout.write(JSON.stringify({ sha: process.env.SHA_MODE === 'invalid' ? 'not-a-sha' : process.env.SHA_MODE === 'mismatch' ? '${'b'.repeat(40)}' : '${actionSha.toUpperCase()}' }));
+} else { process.exit(2); }
+`);
+  chmodSync(fakeGh, 0o755);
+  for (const mode of ['match', 'mismatch', 'invalid', 'error']) {
+    const result = spawnSync(process.execPath, [resolve(import.meta.dirname, '../scripts/check-ci-dependencies.mjs')], {
+      encoding: 'utf8', timeout: 5000,
+      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, CI_DEPENDENCIES_WORKFLOW_DIRECTORY: workflowDirectory,
+        GITHUB_EVENT_NAME: 'pull_request', SHA_MODE: mode, GITHUB_STEP_SUMMARY: join(directory, 'summary') },
+    });
+    assert.equal(result.status, mode === 'match' ? 0 : 1, result.stdout + result.stderr);
+    if (mode === 'match') assert.match(result.stdout, /::warning title=Outdated CI dependency/);
+    if (mode === 'mismatch') assert.match(result.stdout, /::error title=CI dependency pin mismatch::.*SHA.*does not match tag/);
+    if (mode === 'invalid' || mode === 'error') assert.match(result.stderr, /::error title=CI dependency check failed/);
   }
 });

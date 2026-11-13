@@ -3,9 +3,9 @@
  * Check workflow action refs and separately downloaded CI tools against stable releases.
  *
  * A newer upstream release is external state, not something the checked commit caused
- * (CI/CD best practices, principle 17). Outdated pins therefore fail only pull requests,
- * where a contributor can act; on push, schedule, and manual runs they are reported as
- * warnings plus a step summary, and Dependabot (.github/dependabot.yml) proposes the bump.
+ * (CI/CD best practices, principle 17). Outdated pins are reported as warnings plus
+ * a step summary on every event. Dependabot (.github/dependabot.yml) proposes bumps
+ * after its cooldown without blocking unrelated pull requests.
  * Mutable pins, checksum or digest mismatches, and lookup errors fail on every event.
  */
 import { execFileSync } from 'node:child_process';
@@ -29,7 +29,7 @@ export function collectDependencies(directory) {
     const yaml = readFileSync(path, 'utf8');
     let bunActions = 0;
     let bunVersions = 0;
-    for (const [, literal] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?uses:[ \t]*([^\s#]+)/gm)) {
+    for (const [, literal, comment] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?uses:[ \t]*([^\s#]+)[ \t]*(?:#([^\r\n]*))?/gm)) {
       const reference = literal.replace(/^(['"])(.*)\1$/, '$2');
       if (reference.startsWith('./')) continue;
       if (reference.startsWith('docker://')) {
@@ -38,10 +38,14 @@ export function collectDependencies(directory) {
         dependencies.push({ path, repo: 'rhysd/actionlint', version: `v${match[1]}`, digest: `sha256:${match[2]}` });
         continue;
       }
-      const match = reference.match(/^([\w.-]+\/[\w.-]+)(?:\/[^@]+)?@(v\d+\.\d+\.\d+)$/);
-      if (!match) throw new Error(`${name}: use an exact stable action version: ${reference}`);
-      dependencies.push({ path, repo: match[1], version: match[2] });
-      if (match[1] === 'oven-sh/setup-bun') bunActions++;
+      const match = reference.match(/^([\w.-]+\/[\w.-]+)(?:\/[^@]+)?@(v\d+\.\d+\.\d+|[a-fA-F0-9]{40})$/);
+      if (!match) throw new Error(`${name}: use an exact stable action version or full SHA with a # vX.Y.Z comment: ${reference}`);
+      const [, repo, ref] = match;
+      const sha = /^[a-fA-F0-9]{40}$/.test(ref) ? ref.toLowerCase() : undefined;
+      const version = sha ? comment?.trim().match(/^(v\d+\.\d+\.\d+)$/)?.[1] : ref;
+      if (!version) throw new Error(`${name}: SHA-pinned actions need an exact stable # vX.Y.Z comment: ${reference}`);
+      dependencies.push({ path, repo, version, ...(sha ? { sha } : {}) });
+      if (repo === 'oven-sh/setup-bun') bunActions++;
     }
     for (const [, version] of yaml.matchAll(/^[ \t]*(?:-[ \t]+)?bun-version:[ \t]*['"]?([^\s'"#]+)/gm)) {
       if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`${name}: pin bun-version to an exact stable version`);
@@ -94,13 +98,21 @@ function releaseAssetDigest(repo, version, asset) {
   return digest.slice('sha256:'.length);
 }
 
+function actionTagSha(repo, version) {
+  // The commits endpoint resolves lightweight and annotated tags to the commit.
+  const commit = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/commits/${version}`], { encoding: 'utf8' }));
+  if (!/^[a-fA-F0-9]{40}$/.test(commit.sha || '')) throw new Error(`${repo} ${version}: tag resolved to no valid commit SHA`);
+  return commit.sha.toLowerCase();
+}
+
 /**
  * Cache upstream lookups and classify each problem. `outdated` means a newer stable release
- * exists; `broken` means a pinned digest or checksum does not match upstream. Lookup errors throw.
+ * exists; `broken` means a pinned SHA, digest or checksum does not match upstream. Lookup errors throw.
  */
-export async function findProblems(dependencies, latest = latestRelease, digest = actionlintDigest, assetDigest = releaseAssetDigest) {
+export async function findProblems(dependencies, latest = latestRelease, digest = actionlintDigest, assetDigest = releaseAssetDigest, tagSha = actionTagSha) {
   const releases = new Map();
   const digests = new Map();
+  const commits = new Map();
   const problems = [];
   for (const dependency of dependencies) {
     const { path, repo, version } = dependency;
@@ -108,6 +120,13 @@ export async function findProblems(dependencies, latest = latestRelease, digest 
     const current = releases.get(repo);
     if (version !== current) {
       problems.push({ kind: OUTDATED, message: `${path}: ${repo} ${version} is outdated; latest stable is ${current}` });
+    }
+    if (dependency.sha) {
+      const key = `${repo}@${version}`;
+      if (!commits.has(key)) commits.set(key, await tagSha(repo, version));
+      if (dependency.sha !== commits.get(key)) {
+        problems.push({ kind: BROKEN, message: `${path}: ${repo} SHA ${dependency.sha} does not match tag ${version}` });
+      }
     }
     if (dependency.digest) {
       if (!digests.has(version)) digests.set(version, await digest(version));
@@ -137,29 +156,28 @@ function escapeCommandData(value) {
 
 /**
  * Turn problems into an exit code, workflow-command lines, and a step summary.
- * Outdated pins fail only `pull_request`; broken pins fail on every event.
+ * Outdated pins warn on every event; broken pins always fail.
  */
-export function report(problems, count, eventName) {
-  const gate = eventName === 'pull_request';
+export function report(problems, count) {
   const outdated = problems.filter(problem => problem.kind === OUTDATED);
   const broken = problems.filter(problem => problem.kind !== OUTDATED);
   const lines = [];
   for (const { message } of broken) lines.push(`::error title=CI dependency pin mismatch::${escapeCommandData(message)}`);
   for (const { message } of outdated) {
-    lines.push(`::${gate ? 'error' : 'warning'} title=Outdated CI dependency::${escapeCommandData(message)}`);
+    lines.push(`::warning title=Outdated CI dependency::${escapeCommandData(message)}`);
   }
   if (!problems.length) lines.push(`All ${count} CI dependency declarations match their latest stable releases.`);
-  else if (outdated.length && !gate) {
-    lines.push(`${outdated.length} outdated CI dependency pin(s) reported as warnings because event "${eventName || 'local'}" is not a pull request; Dependabot or a pull request bumps them.`);
+  else if (outdated.length) {
+    lines.push(`${outdated.length} outdated CI dependency pin(s) reported as warnings; Dependabot or a pull request bumps them.`);
   }
   const summary = ['## CI dependency freshness', ''];
   if (!problems.length) summary.push(`All ${count} CI dependency declarations match their latest stable releases.`);
   for (const { message } of broken) summary.push(`- :x: ${message}`);
-  for (const { message } of outdated) summary.push(`- ${gate ? ':x:' : ':warning:'} ${message}`);
-  if (outdated.length && !gate) {
-    summary.push('', 'A newer upstream release is external state, so it is a warning outside pull requests. Bump the pins in a pull request (Dependabot proposes action bumps).');
+  for (const { message } of outdated) summary.push(`- :warning: ${message}`);
+  if (outdated.length) {
+    summary.push('', 'A newer upstream release is external state, so it is a warning on every event. Bump the pins in a pull request (Dependabot proposes action bumps).');
   }
-  const exitCode = broken.length || (gate && outdated.length) ? 1 : 0;
+  const exitCode = broken.length ? 1 : 0;
   return { exitCode, lines, summary: `${summary.join('\n')}\n` };
 }
 
@@ -167,7 +185,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     const directory = process.env.CI_DEPENDENCIES_WORKFLOW_DIRECTORY || resolve(import.meta.dirname, '..', '.github', 'workflows');
     const dependencies = collectDependencies(directory);
-    const result = report(await findProblems(dependencies), dependencies.length, process.env.GITHUB_EVENT_NAME);
+    const result = report(await findProblems(dependencies), dependencies.length);
     for (const line of result.lines) console.log(line);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, result.summary);
     process.exitCode = result.exitCode;

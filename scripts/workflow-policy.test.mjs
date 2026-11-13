@@ -106,12 +106,6 @@ function readRepositoryFile(...parts) {
   return readFileSync(resolve(import.meta.dirname, '..', ...parts), 'utf8');
 }
 
-test('outdated CI pins fail pull requests but only warn on push and schedule', () => {
-  const checker = readRepositoryFile('scripts', 'check-ci-dependencies.mjs');
-  assert.match(checker, /eventName === 'pull_request'/);
-  assert.match(checker, /GITHUB_STEP_SUMMARY/);
-});
-
 test('Dependabot proposes Maven and GitHub Actions updates weekly with a cooldown', () => {
   const dependabot = readRepositoryFile('.github', 'dependabot.yml');
   for (const ecosystem of ['maven', 'github-actions']) {
@@ -136,6 +130,7 @@ test('the security workflow audits Maven dependencies and plugins on PRs, main, 
   assert.match(security, /^permissions:\n  contents: read/m);
   assert.match(security, /OSV_SCANNER_VERSION: v\d+\.\d+\.\d+\n/);
   assert.match(security, /OSV_SCANNER_SHA256: [a-f0-9]{64}\n/);
+  assert.match(security, /curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20/);
   assert.match(security, /sha256sum --check --strict/);
   assert.match(security, /osv-scanner scan source -L pom\.xml/);
   assert.match(security, /node scripts\/audit-maven-plugins\.mjs pom\.xml/);
