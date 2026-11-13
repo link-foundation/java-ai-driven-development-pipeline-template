@@ -8,25 +8,18 @@
  *   bun scripts/bump-version.mjs --bump-type <major|minor|patch> [--dry-run]
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { parseArgs as parseCommandLine } from 'node:util';
+
+import { readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 
 /**
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let bumpType = null;
-  let dryRun = false;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--bump-type' && args[i + 1]) {
-      bumpType = args[i + 1];
-      i++;
-    } else if (args[i] === '--dry-run') {
-      dryRun = true;
-    }
-  }
+  const { values } = parseCommandLine({ options: {'bump-type': { type: 'string' }, 'dry-run': { type: 'boolean', default: false }} });
+  const bumpType = values['bump-type'];
+  const dryRun = values['dry-run'];
 
   if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
     console.error('Usage: bump-version.mjs --bump-type <major|minor|patch> [--dry-run]');
@@ -167,8 +160,7 @@ function main() {
 
   // Set GitHub Actions output if running in CI
   if (process.env.GITHUB_OUTPUT) {
-    const fs = await import('fs');
-    fs.appendFileSync(
+    appendFileSync(
       process.env.GITHUB_OUTPUT,
       `new_version=${newVersion}\n`
     );

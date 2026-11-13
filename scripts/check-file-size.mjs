@@ -9,6 +9,8 @@
  *   bun scripts/check-file-size.mjs [--max-lines <number>] [--verbose]
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import { printUntrusted } from './github-actions-log.mjs';
@@ -20,18 +22,10 @@ const WARNING_LINES = 900;
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let maxLines = MAX_LINES_DEFAULT;
-  let verbose = false;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--max-lines' && args[i + 1]) {
-      maxLines = parseInt(args[i + 1], 10);
-      i++;
-    } else if (args[i] === '--verbose') {
-      verbose = true;
-    }
-  }
+  const { values } = parseCommandLine({ options: {'max-lines': { type: 'string', default: String(MAX_LINES_DEFAULT) }, verbose: { type: 'boolean', default: false }} });
+  const maxLines = Number(values['max-lines']);
+  if (!Number.isSafeInteger(maxLines) || maxLines < 1) throw new Error('--max-lines must be a positive integer');
+  const verbose = values.verbose;
 
   return { maxLines, verbose };
 }

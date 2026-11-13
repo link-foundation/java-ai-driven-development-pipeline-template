@@ -9,6 +9,8 @@
  *   bun scripts/collect-changelog.mjs [--version <version>] [--dry-run]
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { readFileSync, writeFileSync, readdirSync, unlinkSync, existsSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import { printUntrusted } from './github-actions-log.mjs';
@@ -20,18 +22,9 @@ const PACKAGE_NAME = 'my-package';
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let dryRun = false;
-  let version = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--dry-run') {
-      dryRun = true;
-    } else if (args[i] === '--version' && args[i + 1]) {
-      version = args[i + 1];
-      i++;
-    }
-  }
+  const { values } = parseCommandLine({ options: {version: { type: 'string' }, 'dry-run': { type: 'boolean', default: false }} });
+  const version = values.version;
+  const dryRun = values['dry-run'];
 
   return { dryRun, version };
 }

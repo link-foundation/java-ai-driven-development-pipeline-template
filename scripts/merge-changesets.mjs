@@ -9,6 +9,8 @@
  *   bun scripts/merge-changesets.mjs [--dry-run]
  */
 
+import { parseArgs as parseCommandLine } from 'node:util';
+
 import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import { printUntrusted } from './github-actions-log.mjs';
@@ -59,14 +61,8 @@ const NOUNS = [
  * Parse command line arguments.
  */
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let dryRun = false;
-
-  for (const arg of args) {
-    if (arg === '--dry-run') {
-      dryRun = true;
-    }
-  }
+  const { values } = parseCommandLine({ options: {'dry-run': { type: 'boolean', default: false }} });
+  const dryRun = values['dry-run'];
 
   return { dryRun };
 }
