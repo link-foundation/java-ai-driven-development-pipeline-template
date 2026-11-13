@@ -63,13 +63,12 @@ public final class MyPackage {
     if (milliseconds < 0) {
       throw new IllegalArgumentException("Delay cannot be negative");
     }
-    return CompletableFuture.runAsync(
-        () -> {
-          try {
-            TimeUnit.MILLISECONDS.sleep(milliseconds);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
-        });
+    return CompletableFuture.runAsync(() -> {
+      try {
+        TimeUnit.MILLISECONDS.sleep(milliseconds);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    });
   }
 }

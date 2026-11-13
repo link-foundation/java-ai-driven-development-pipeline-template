@@ -22,7 +22,12 @@ const WARNING_LINES = 900;
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {'max-lines': { type: 'string', default: String(MAX_LINES_DEFAULT) }, verbose: { type: 'boolean', default: false }} });
+  const { values } = parseCommandLine({
+    options: {
+      'max-lines': { type: 'string', default: String(MAX_LINES_DEFAULT) },
+      verbose: { type: 'boolean', default: false },
+    },
+  });
   const maxLines = Number(values['max-lines']);
   if (!Number.isSafeInteger(maxLines) || maxLines < 1) throw new Error('--max-lines must be a positive integer');
   const verbose = values.verbose;

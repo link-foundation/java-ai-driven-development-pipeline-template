@@ -1,10 +1,12 @@
 # Pre-commit hooks configuration
 # See https://pre-commit.com for more information
 
+minimum_pre_commit_version: '4.7.0'
+
 repos:
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: ^(\.git|target)/
@@ -24,7 +26,7 @@ repos:
       # Spotless formatting check
       - id: spotless-check
         name: Spotless Format Check
-        entry: mvn spotless:check -B -q
+        entry: ./mvnw spotless:check -B -q
         language: system
         types: [java]
         pass_filenames: false
@@ -32,7 +34,7 @@ repos:
       # Maven compile check
       - id: maven-compile
         name: Maven Compile
-        entry: mvn compile -B -q
+        entry: ./mvnw compile -B -q
         language: system
         types: [java]
         pass_filenames: false
@@ -40,7 +42,7 @@ repos:
       # Maven test
       - id: maven-test
         name: Maven Test
-        entry: mvn test -B -q
+        entry: ./mvnw test -B -q
         language: system
         types: [java]
         pass_filenames: false

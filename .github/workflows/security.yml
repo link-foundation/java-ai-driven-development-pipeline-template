@@ -22,7 +22,7 @@ permissions:
 jobs:
   dependency-audit:
     name: Audit Maven dependencies and plugins (OSV)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-dependency-audit
@@ -33,12 +33,25 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          package-manager-cache: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: '27.0.1'
+          distribution: temurin
+          cache: maven
+
       - name: Install OSV-Scanner
         env:
           # scripts/check-ci-dependencies.mjs keeps this version current and
           # checks the checksum against the release asset digest.
-          OSV_SCANNER_VERSION: v2.7.0
-          OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+          OSV_SCANNER_VERSION: v2.7.1
+          OSV_SCANNER_SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/osv-scanner"
@@ -53,8 +66,11 @@ jobs:
         run: osv-scanner scan source -L pom.xml
 
       - name: Audit Maven build plugins (all severities)
-        # OSV-Scanner does not read <build><plugins>; query OSV for them directly.
+        # OSV-Scanner omits plugin dependencies. Maven resolves the actual test
+        # and plugin trees, including release signing, for the supplemental audit.
+        # site is not used or declared by this project: resolve-plugins includes
+        # this unused super-POM tool even though it is not a jar lifecycle plugin.
         run: |
           node --test experiments/maven-plugin-audit.test.mjs
-          node scripts/audit-maven-plugins.mjs pom.xml
-
+          ./mvnw dependency:list dependency:resolve-plugins -Prelease -DexcludeArtifactIds=maven-site-plugin -DoutputFile=target/resolved-artifacts.txt -DappendOutput=true -B -ntp
+          node scripts/audit-maven-plugins.mjs pom.xml target/resolved-artifacts.txt

@@ -3,13 +3,13 @@
 A production-ready Java project template designed for AI-driven development workflows. Features comprehensive CI/CD automation, strict code quality standards, and modern best practices.
 
 [![CI/CD Pipeline](https://github.com/link-foundation/java-ai-driven-development-pipeline-template/actions/workflows/release.yml/badge.svg)](https://github.com/link-foundation/java-ai-driven-development-pipeline-template/actions/workflows/release.yml)
-[![Java 17+](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
+[![Java 27+](https://img.shields.io/badge/Java-27%2B-blue)](https://adoptium.net/)
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](https://unlicense.org)
 
 ## Features
 
-- **Multi-version Java Support**: Tested with Java 17 and 21
-- **Comprehensive Testing**: JUnit 5 with parameterized tests and coverage reporting
+- **Multi-version Java Support**: Tested with Java 27.0.1
+- **Comprehensive Testing**: JUnit 6 with parameterized tests and coverage reporting
 - **Code Quality Tools**:
   - Spotless (Google Java Format) for consistent formatting
   - SpotBugs for static analysis
@@ -40,14 +40,14 @@ git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
 cd YOUR_REPO
 
 # Verify prerequisites
-java --version    # Should be 17+
-mvn --version     # Should be 3.8+
+java --version    # Should be 27.0.1+
+./mvnw --version     # Should be 3.10.0+
 
 # Build and test
-mvn clean verify
+./mvnw clean verify
 
 # Install pre-commit hooks (optional)
-pip install pre-commit
+pip install pre-commit==4.7.0
 pre-commit install
 ```
 
@@ -110,11 +110,11 @@ MyPackage.delay(1000).join();              // Waits for 1 second
 
 ```bash
 # Build and run
-mvn package
+./mvnw package
 java -jar target/my-package-0.1.0.jar
 
 # Or run directly
-mvn exec:java -Dexec.mainClass="com.linkfoundation.mypackage.Main"
+java -jar target/my-package-0.2.0.jar
 ```
 
 ## Development
@@ -123,23 +123,23 @@ mvn exec:java -Dexec.mainClass="com.linkfoundation.mypackage.Main"
 
 ```bash
 # Format code (applies fixes)
-mvn spotless:apply
+./mvnw spotless:apply
 
 # Check formatting (CI mode)
-mvn spotless:check
+./mvnw spotless:check
 
 # Run static analysis
-mvn spotbugs:check
+./mvnw spotbugs:check
 
 # Run all tests
-mvn test
+./mvnw test
 
 # Run tests with coverage
-mvn test jacoco:report
+./mvnw test jacoco:report
 open target/site/jacoco/index.html
 
 # Full verification
-mvn verify
+./mvnw verify
 
 # Check file sizes
 bun scripts/check-file-size.mjs
@@ -206,7 +206,7 @@ the third attempt it fails with a "Hosted runner not acquired" error and the
 ### Test Matrix
 
 - **Operating Systems**: Linux, macOS, Windows
-- **Java Version**: 21
+- **Java Version**: 27.0.1
 
 ### Release Process
 

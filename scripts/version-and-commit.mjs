@@ -42,7 +42,12 @@ const BUMP_PRIORITY = {
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {mode: { type: 'string', default: 'instant' }, 'bump-type': { type: 'string' }} });
+  const { values } = parseCommandLine({
+    options: {
+      mode: { type: 'string', default: 'instant' },
+      'bump-type': { type: 'string' },
+    },
+  });
   const mode = values.mode;
   const bumpType = values['bump-type'];
 

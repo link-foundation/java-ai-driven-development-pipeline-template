@@ -22,7 +22,12 @@ const PACKAGE_NAME = 'my-package';
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {version: { type: 'string' }, 'dry-run': { type: 'boolean', default: false }} });
+  const { values } = parseCommandLine({
+    options: {
+      version: { type: 'string' },
+      'dry-run': { type: 'boolean', default: false },
+    },
+  });
   const version = values.version;
   const dryRun = values['dry-run'];
 

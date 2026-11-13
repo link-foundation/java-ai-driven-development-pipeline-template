@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { auditArtifacts, collectBuildArtifacts } from '../scripts/audit-maven-plugins.mjs';
+import { auditArtifacts, collectBuildArtifacts, collectResolvedArtifacts } from '../scripts/audit-maven-plugins.mjs';
 
 const pom = `<project>
   <properties>
@@ -73,4 +73,25 @@ test('reports only artifacts with advisories and sends Maven OSV queries', async
 
 test('OSV lookup failures propagate instead of reporting no advisories', async () => {
   await assert.rejects(auditArtifacts(collectBuildArtifacts(pom), async () => { throw new Error('OSV: HTTP 503'); }), /503/);
+});
+
+
+test('resolved Maven reports include test dependencies and plugin transitives without duplicates', () => {
+  const artifacts = collectResolvedArtifacts(`
+The following files have been resolved:
+   org.junit.jupiter:junit-jupiter:jar:6.1.3:test -- module org.junit.jupiter
+The following plugins have been resolved:
+   org.apache.maven.plugins:maven-compiler-plugin:jar:3.16.0
+      org.example:transitive:jar:1.2.3
+      org.example:transitive:jar:1.2.3
+      org.example:classified:jar:linux:2.0.0:runtime
+`);
+  assert.deepEqual(artifacts, [
+    { name: 'org.junit.jupiter:junit-jupiter', version: '6.1.3' },
+    { name: 'org.apache.maven.plugins:maven-compiler-plugin', version: '3.16.0' },
+    { name: 'org.example:transitive', version: '1.2.3' },
+    { name: 'org.example:classified', version: '2.0.0' },
+  ]);
+  assert.throws(() => collectResolvedArtifacts('no resolved artifacts'), /no artifacts/);
+  assert.throws(() => collectResolvedArtifacts('org.example:bad:jar:[1,2)'), /Invalid/);
 });

@@ -31,7 +31,7 @@ on:
         type: string
 
 env:
-  JAVA_VERSION: '21'
+  JAVA_VERSION: '27.0.1'
   JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
   # =============================================================================
   detect-changes:
     name: Detect Changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: github.event_name != 'workflow_dispatch'
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
@@ -52,6 +52,7 @@ jobs:
       docs-changed: ${{ steps.changes.outputs.docs-changed }}
       workflow-changed: ${{ steps.changes.outputs.workflow-changed }}
       any-code-changed: ${{ steps.changes.outputs.any-code-changed }}
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -78,7 +79,7 @@ jobs:
   # =============================================================================
   lint:
     name: Lint & Format
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [detect-changes]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-lint
@@ -91,12 +92,19 @@ jobs:
       needs.detect-changes.outputs.mjs-changed == 'true' ||
       needs.detect-changes.outputs.docs-changed == 'true' ||
       needs.detect-changes.outputs.workflow-changed == 'true'
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          package-manager-cache: false
+
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -108,10 +116,10 @@ jobs:
           bun-version: '1.4.4'
 
       - name: Check code formatting (Spotless)
-        run: mvn spotless:check -B
+        run: ./mvnw spotless:check -B
 
       - name: Run SpotBugs static analysis
-        run: mvn spotbugs:check -B
+        run: ./mvnw spotbugs:check -B
 
       - name: Check file sizes
         run: bun scripts/check-file-size.mjs
@@ -123,7 +131,7 @@ jobs:
         uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
         with:
           # GitHub supports concurrency.queue, pending actionlint support:
-          # https://github.com/rhysd/actionlint/pull/661
+          # https://github.com/rhysd/actionlint/issues/657
           args: -color -ignore unexpected.key.*queue
 
   # =============================================================================
@@ -143,24 +151,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-26, windows-2025]
-        java: ['21']
+        os: [ubuntu-26.04, macos-26, windows-2025]
+        java: ['27.0.1']
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ matrix.java }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Run tests with coverage
-        run: mvn test jacoco:report -B
+        run: ./mvnw test jacoco:report -B
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-24.04' && matrix.java == '21' && env.CODECOV_TOKEN != ''
+        if: matrix.os == 'ubuntu-26.04' && matrix.java == '27.0.1' && env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ env.CODECOV_TOKEN }}
@@ -170,7 +179,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Note that coverage was not uploaded
-        if: matrix.os == 'ubuntu-24.04' && matrix.java == '21' && env.CODECOV_TOKEN == ''
+        if: matrix.os == 'ubuntu-26.04' && matrix.java == '27.0.1' && env.CODECOV_TOKEN == ''
         run: echo "::notice::CODECOV_TOKEN is not configured, so coverage was not uploaded"
 
   # =============================================================================
@@ -178,26 +187,27 @@ jobs:
   # =============================================================================
   build:
     name: Build Package
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [lint, test]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-build
       cancel-in-progress: true
     # Run only if lint and test succeeded (handles skipped lint gracefully)
     if: ${{ !cancelled() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && needs.test.result == 'success' }}
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
       - name: Build with Maven
-        run: mvn package -DskipTests -B
+        run: ./mvnw package -DskipTests -B
 
       - name: Verify JAR contents
         run: |
@@ -220,12 +230,13 @@ jobs:
   # =============================================================================
   changeset-check:
     name: Changeset Check
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [detect-changes]
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
       cancel-in-progress: true
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -247,7 +258,7 @@ jobs:
   # =============================================================================
   auto-release:
     name: Auto Release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     concurrency:
@@ -256,6 +267,7 @@ jobs:
       queue: max
     permissions:
       contents: write
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -263,8 +275,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          package-manager-cache: false
+
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -308,11 +326,11 @@ jobs:
             RELEASE_SOURCE="$(mktemp -d)"
             trap 'git worktree remove --force "$RELEASE_SOURCE"' EXIT
             git worktree add --detach "$RELEASE_SOURCE" "refs/tags/v$RELEASE_VERSION"
-            mvn -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
+            ./mvnw -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
             mkdir -p target
             cp "$RELEASE_SOURCE"/target/*.jar target/
           else
-            mvn package source:jar javadoc:jar -DskipTests -B
+            ./mvnw package source:jar javadoc:jar -DskipTests -B
           fi
 
       - name: Create GitHub Release
@@ -353,7 +371,7 @@ jobs:
   # =============================================================================
   manual-release-changeset:
     name: Manual Release (Changeset)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset'
     concurrency:
@@ -362,6 +380,7 @@ jobs:
       queue: max
     permissions:
       contents: write
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -369,8 +388,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          package-manager-cache: false
+
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -400,11 +425,11 @@ jobs:
             RELEASE_SOURCE="$(mktemp -d)"
             trap 'git worktree remove --force "$RELEASE_SOURCE"' EXIT
             git worktree add --detach "$RELEASE_SOURCE" "refs/tags/v$RELEASE_VERSION"
-            mvn -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
+            ./mvnw -f "$RELEASE_SOURCE/pom.xml" package source:jar javadoc:jar -DskipTests -B
             mkdir -p target
             cp "$RELEASE_SOURCE"/target/*.jar target/
           else
-            mvn package source:jar javadoc:jar -DskipTests -B
+            ./mvnw package source:jar javadoc:jar -DskipTests -B
           fi
 
       - name: Create GitHub Release
@@ -445,7 +470,7 @@ jobs:
   # =============================================================================
   manual-release-instant:
     name: Manual Release (Instant)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [build]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
     concurrency:
@@ -454,6 +479,7 @@ jobs:
       queue: max
     permissions:
       contents: write
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -461,8 +487,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          package-manager-cache: false
+
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -482,7 +514,7 @@ jobs:
 
       - name: Build release artifacts
         if: steps.release.outputs.released == 'true'
-        run: mvn package source:jar javadoc:jar -DskipTests -B
+        run: ./mvnw package source:jar javadoc:jar -DskipTests -B
 
       - name: Create GitHub Release
         if: steps.release.outputs.released == 'true'
@@ -522,7 +554,7 @@ jobs:
   # =============================================================================
   changeset-pr:
     name: Create Changeset PR
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
     concurrency:
       group: main-writer-${{ github.repository }}-main
@@ -531,6 +563,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -556,7 +589,7 @@ jobs:
             --description "$DESCRIPTION"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8.1.1
+        uses: peter-evans/create-pull-request@v8.1.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: add changeset for ${{ inputs.bump_type }} release"

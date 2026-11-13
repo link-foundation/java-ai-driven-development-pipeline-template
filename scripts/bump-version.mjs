@@ -17,7 +17,12 @@ import { join } from 'path';
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {'bump-type': { type: 'string' }, 'dry-run': { type: 'boolean', default: false }} });
+  const { values } = parseCommandLine({
+    options: {
+      'bump-type': { type: 'string' },
+      'dry-run': { type: 'boolean', default: false },
+    },
+  });
   const bumpType = values['bump-type'];
   const dryRun = values['dry-run'];
 

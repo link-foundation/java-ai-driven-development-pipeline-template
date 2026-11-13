@@ -61,7 +61,9 @@ const NOUNS = [
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {'dry-run': { type: 'boolean', default: false }} });
+  const { values } = parseCommandLine({
+    options: { 'dry-run': { type: 'boolean', default: false } },
+  });
   const dryRun = values['dry-run'];
 
   return { dryRun };

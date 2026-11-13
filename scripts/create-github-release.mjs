@@ -19,7 +19,12 @@ import { githubReleaseState, validateReleaseVersion } from './github-release-sta
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {'release-version': { type: 'string' }, repository: { type: 'string' }} });
+  const { values } = parseCommandLine({
+    options: {
+      'release-version': { type: 'string' },
+      repository: { type: 'string' },
+    },
+  });
   const releaseVersion = values['release-version'];
   const repository = values.repository;
 

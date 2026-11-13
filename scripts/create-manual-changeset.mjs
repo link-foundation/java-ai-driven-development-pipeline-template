@@ -61,7 +61,12 @@ const NOUNS = [
  * Parse command line arguments.
  */
 function parseArgs() {
-  const { values } = parseCommandLine({ options: {'bump-type': { type: 'string', default: 'patch' }, description: { type: 'string', default: '' }} });
+  const { values } = parseCommandLine({
+    options: {
+      'bump-type': { type: 'string', default: 'patch' },
+      description: { type: 'string', default: '' },
+    },
+  });
   const bumpType = values['bump-type'];
   const description = values.description;
 

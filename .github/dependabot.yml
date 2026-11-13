@@ -1,7 +1,7 @@
 # Dependabot proposes the updates that CI reports (issues #14 and #15).
 #
 # - maven: dependencies and build plugins in pom.xml. Every plugin version is a
-#   property, and requireMavenVersion uses a range ([3.8.0,)), so a plugin bump
+#   property, and requireMavenVersion uses a range ([3.10.0,)), so a plugin bump
 #   never rewrites an enforcer rule by accident. Keep that layout.
 # - github-actions: the action pins in .github/workflows. Pins that Dependabot
 #   cannot see (bun-version, OSV_SCANNER_VERSION, the Actionlint image digest,
@@ -37,3 +37,15 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: chore(ci)
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      hooks:
+        patterns: ['*']
+    commit-message:
+      prefix: chore(deps)

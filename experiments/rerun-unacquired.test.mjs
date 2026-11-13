@@ -5,15 +5,15 @@ import { decide, escapeCommandData, run, unacquiredJobs } from '../scripts/rerun
 
 const NOT_ACQUIRED = 'The job was not acquired by Runner of type hosted even after multiple attempts';
 // Shapes taken from link-foundation/links-notation run 41477660740, attempt 1.
-const unacquired = { id: 1, name: 'Test (Java 21, macos-26)', conclusion: 'cancelled', runner_name: '', steps: [] };
-const realFailure = { id: 2, name: 'Test (Java 21, ubuntu-24.04)', conclusion: 'failure', runner_name: 'GitHub Actions 7', steps: [{ name: 'Run tests' }] };
+const unacquired = { id: 1, name: 'Test (Java 27.0.1, macos-26)', conclusion: 'cancelled', runner_name: '', steps: [] };
+const realFailure = { id: 2, name: 'Test (Java 27.0.1, ubuntu-26.04)', conclusion: 'failure', runner_name: 'GitHub Actions 7', steps: [{ name: 'Run tests' }] };
 const concurrencyCancelled = { id: 3, name: 'Lint & Format', conclusion: 'cancelled', runner_name: '', steps: [] };
 const skipped = { id: 4, name: 'Build Package', conclusion: 'skipped', runner_name: '', steps: [] };
 
 test('only jobs with no runner, no steps, and the not-acquired annotation qualify', () => {
   const annotations = new Map([[1, [NOT_ACQUIRED]], [2, [NOT_ACQUIRED]], [3, ['Canceling since a higher priority waiting request exists']]]);
-  assert.deepEqual(unacquiredJobs([unacquired, realFailure, concurrencyCancelled, skipped], annotations), ['Test (Java 21, macos-26)']);
-  assert.deepEqual(unacquiredJobs([{ ...unacquired, conclusion: 'failure' }], annotations), ['Test (Java 21, macos-26)']);
+  assert.deepEqual(unacquiredJobs([unacquired, realFailure, concurrencyCancelled, skipped], annotations), ['Test (Java 27.0.1, macos-26)']);
+  assert.deepEqual(unacquiredJobs([{ ...unacquired, conclusion: 'failure' }], annotations), ['Test (Java 27.0.1, macos-26)']);
 });
 
 test('reruns at most twice, then gives up', () => {
@@ -42,7 +42,7 @@ test('reruns failed jobs once a runner was not acquired', () => {
   const summaries = [];
   assert.equal(run({ repository: 'o/r', runId: 42, attempt: 1, api, log: line => lines.push(line), summary: text => summaries.push(text) }), 0);
   assert.deepEqual(calls.at(-1), ['run', 'rerun', '42', '--failed', '--repo', 'o/r']);
-  assert.match(lines.at(-1), /^::warning title=Hosted runner not acquired::Test \(Java 21, macos-26\)/);
+  assert.match(lines.at(-1), /^::warning title=Hosted runner not acquired::Test \(Java 27.0.1, macos-26\)/);
   assert.match(summaries[0], /infrastructure failure, not a code failure/);
 });
 

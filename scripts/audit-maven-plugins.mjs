@@ -5,7 +5,8 @@
  * OSV-Scanner resolves pom.xml <dependencies> and their transitive closure, but it
  * does not read <build><plugins>, plugin <dependencies>, or the google-java-format
  * version that Spotless downloads. This script queries OSV for exactly those
- * coordinates, so an advisory against a build plugin also fails the security audit.
+ * coordinates and the optional Maven resolution report, so advisories in plugin
+ * transitives and the complete project/test tree also fail the security audit.
  * Every severity counts: any known advisory exits 1.
  */
 import { appendFileSync, readFileSync } from 'node:fs';
@@ -71,6 +72,25 @@ export function collectBuildArtifacts(pomXml) {
   return [...artifacts.values()];
 }
 
+/** Parse Maven dependency:list / dependency:resolve-plugins reports, including test scope. */
+export function collectResolvedArtifacts(report) {
+  const artifacts = new Map();
+  for (const line of report.split('\n')) {
+    const coordinate = line.trim().split(/\s/)[0];
+    if (!coordinate.includes(':')) continue;
+    const parts = coordinate.split(':');
+    if (parts.length < 4 || parts.length > 6 || !parts.every(part => /^[\w.+-]+$/.test(part))) {
+      throw new Error(`Invalid resolved Maven coordinate: ${coordinate}`);
+    }
+    const scope = /^(compile|provided|runtime|test|system)$/.test(parts.at(-1));
+    const version = parts.at(scope ? -2 : -1);
+    const name = `${parts[0]}:${parts[1]}`;
+    artifacts.set(`${name}@${version}`, { name, version });
+  }
+  if (!artifacts.size) throw new Error('Maven resolution report contains no artifacts');
+  return [...artifacts.values()];
+}
+
 async function osvQueryBatch(queries) {
   const response = await fetch(OSV_QUERY_BATCH, {
     method: 'POST',
@@ -97,7 +117,9 @@ export async function auditArtifacts(artifacts, query = osvQueryBatch) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const pomPath = resolve(process.argv[2] || 'pom.xml');
-    const artifacts = collectBuildArtifacts(readFileSync(pomPath, 'utf8'));
+    const declared = collectBuildArtifacts(readFileSync(pomPath, 'utf8'));
+    const resolved = process.argv[3] ? collectResolvedArtifacts(readFileSync(process.argv[3], 'utf8')) : [];
+    const artifacts = [...new Map([...declared, ...resolved].map(artifact => [`${artifact.name}@${artifact.version}`, artifact])).values()];
     const findings = await auditArtifacts(artifacts);
     const summary = ['## Maven build plugin audit (OSV)', ''];
     for (const { name, version, ids } of findings) {
