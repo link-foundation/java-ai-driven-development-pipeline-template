@@ -61,7 +61,7 @@
         <!-- Audited transitive build dependencies; upstream plugins lag these releases. -->
         <build.durian-swt.os.version>5.2.0</build.durian-swt.os.version>
         <build.json-simple.version>4.0.1</build.json-simple.version>
-        <build.zstd-jni.version>1.5.7-26</build.zstd-jni.version>
+        <build.zstd-jni.version>1.5.7-28</build.zstd-jni.version>
         <build.gson.version>2.15.0</build.gson.version>
         <build.error_prone_annotations.version>2.52.0</build.error_prone_annotations.version>
         <build.junixsocket-common.version>2.11.1</build.junixsocket-common.version>
